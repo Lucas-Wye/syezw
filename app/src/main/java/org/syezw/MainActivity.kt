@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,13 +23,24 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 import org.syezw.Utils.daysFromTodayTo
 import org.syezw.ui.theme.SyezwTheme
@@ -73,12 +83,12 @@ fun SyezwApp() {
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             when (currentDestination) {
-                AppDestinations.HOME -> FavoritesScreen(modifier = Modifier.padding(innerPadding))
-                AppDestinations.FAVORITES -> ToolsScreen(name="Master", modifier = Modifier.padding(innerPadding))
-                AppDestinations.PROFILE -> ProfileScreen(modifier = Modifier.padding(innerPadding))
+                AppDestinations.HOME -> OurLove(modifier = Modifier.padding(innerPadding))
+                AppDestinations.TODO -> TODOScreen(modifier = Modifier.padding(innerPadding))
+                AppDestinations.PHOTO -> PhotoScreen(modifier = Modifier.padding(innerPadding))
+                AppDestinations.DIARY -> DiaryScreen(modifier = Modifier.padding(innerPadding))
             }
         }
-
     }
 }
 
@@ -87,12 +97,13 @@ enum class AppDestinations(
     val icon: ImageVector,
 ) {
     HOME("Love", Icons.Default.Favorite),
-    FAVORITES("Tools", Icons.Default.Home),
-    PROFILE("Profile", Icons.Default.AccountBox),
+    TODO("TODO", Icons.Default.Check),
+    PHOTO("Photo", Icons.Default.AccountBox),
+    DIARY(label="DIARY", Icons.Default.MailOutline)
 }
 
 @Composable
-fun FavoritesScreen(modifier: Modifier = Modifier) {
+fun OurLove(modifier: Modifier = Modifier) {
     var days by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -116,22 +127,86 @@ fun FavoritesScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ToolsScreen(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+fun TODOScreen(TodoViewModel: TodoViewModel = viewModel(), modifier: Modifier = Modifier) {
+    var taskName by remember { mutableStateOf("") }
+
+    Column(
+        modifier = modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "TODO List",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        BasicTextField(
+            value = taskName,
+            onValueChange = { taskName = it },
+            decorationBox = { innerTextField ->
+                if (taskName.isEmpty()) {
+                    Text("Enter task name")
+                }
+                innerTextField()
+            }
+        )
+        Button(onClick = {
+            if (taskName.isNotBlank()) {
+                TodoViewModel.addTask(taskName)
+                taskName = ""
+            }
+        }) {
+            Text("Add Task")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        TaskList(TodoViewModel.tasks, TodoViewModel, modifier)
+    }
 }
 
 @Composable
-fun ProfileScreen(modifier: Modifier = Modifier) {
-    Text(text = "这里是个人中心", modifier = modifier)
+fun TaskList(tasks: List<Task>, TodoViewModel: TodoViewModel, modifier: Modifier) {
+    LazyColumn {
+        items(tasks.size) { index ->
+            val task = tasks[index]
+            Row(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = (index+1).toString())
+                Checkbox(
+                    checked = task.isCompleted,
+                    onCheckedChange = {
+                        TodoViewModel.toggleTaskCompletion(task)
+                    }
+                )
+                Text(task.name, modifier = modifier.weight(1f) )
+                IconButton(onClick = { TodoViewModel.removeTask(task) }) {
+                    Icon(Icons.Default.Clear, contentDescription = "Delete Task")
+                }
+            }
+        }
+    }
 }
 
-//@Preview(showBackground = true)
-//@Composable
-//fun GreetingPreview() {
+@Composable
+fun PhotoScreen(modifier: Modifier = Modifier) {
+    Text(text = "傻瓜，这里还没有东西呢", modifier = modifier)
+}
+
+@Composable
+fun DiaryScreen(modifier: Modifier = Modifier) {
+    Text(text = "傻瓜，这里还没有东西！", modifier = modifier)
+}
+
+// @Preview(showBackground=true)
+// @Composable
+// fun ToolsScreenPreview() {
 //     SyezwTheme {
-//         Greeting("Android")
+//         TODOScreen()
 //     }
-//}
+// }
