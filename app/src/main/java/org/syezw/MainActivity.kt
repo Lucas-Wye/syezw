@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -30,6 +31,8 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -38,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -45,8 +49,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import org.syezw.Utils.daysFromTodayTo
 import org.syezw.Utils.isSpecial
 import org.syezw.ui.theme.SyezwTheme
+import org.syezw.ui.theme.DayColor
 import org.syezw.ui.theme.LoveColor
-import org.syezw.ui.theme.Pink80
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,7 +104,7 @@ enum class AppDestinations(
     HOME("Love", Icons.Default.Favorite),
     TODO("TODO", Icons.Default.Check),
     PHOTO("Photo", Icons.Default.AccountBox),
-    DIARY(label="DIARY", Icons.Default.MailOutline)
+    DIARY(label = "DIARY", Icons.Default.MailOutline)
 }
 
 @Composable
@@ -112,22 +116,24 @@ fun OurLove(modifier: Modifier = Modifier) {
     }
 
     Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "在一起已经${(days?: 0).toString()}天啦！",
+            text = "在一起已经${(days ?: 0).toString()}天啦！",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = Pink80,
+            color = DayColor,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        if(isSpecial((days?:0)+1)) {
+        if (isSpecial((days ?: 0) + 1)) {
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                text = "♡ 今天是第${((days?:0)+1).toString()}天哦 (｡･ω･｡)ﾉ",
+                text = "♡今天是第${((days ?: 0) + 1).toString()}天哦(｡･ω･｡)ﾉ",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = LoveColor,
@@ -143,7 +149,9 @@ fun TODOScreen(TodoViewModel: TodoViewModel = viewModel(), modifier: Modifier = 
     var taskName by remember { mutableStateOf("") }
 
     Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(modifier = Modifier.height(2.dp))
@@ -173,33 +181,44 @@ fun TODOScreen(TodoViewModel: TodoViewModel = viewModel(), modifier: Modifier = 
             Text("Add Task")
         }
         Spacer(modifier = Modifier.height(16.dp))
-        TaskList(TodoViewModel.tasks, TodoViewModel, modifier)
+        TaskList(TodoViewModel.tasks, TodoViewModel)
     }
 }
 
 @Composable
-fun TaskList(tasks: List<Task>, TodoViewModel: TodoViewModel, modifier: Modifier) {
+fun TaskList(tasks: List<Task>, viewModel: TodoViewModel) {
     LazyColumn {
         items(tasks.size) { index ->
             val task = tasks[index]
+
             Row(
-                modifier = modifier
+                modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .background(
+                        if (task.isCompleted) MaterialTheme.colorScheme.background
+                        else MaterialTheme.colorScheme.primaryContainer
+                    )
+                    .padding(1.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Checkbox(
                     checked = task.isCompleted,
                     onCheckedChange = {
-                        TodoViewModel.toggleTaskCompletion(task)
+                        viewModel.toggleTaskCompletion(task)
                     }
                 )
-                Text(task.name, modifier = modifier.weight(1f) )
-                IconButton(onClick = { TodoViewModel.removeTask(task) }) {
+                Text(
+                    text = task.name,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp),
+                    fontSize = 16.sp
+                )
+                IconButton(onClick = { viewModel.removeTask(task) }) {
                     Icon(Icons.Default.Clear, contentDescription = "Delete Task")
                 }
             }
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
         }
     }
 }
