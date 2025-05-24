@@ -17,7 +17,7 @@ object Utils {
     }
 
     fun isSpecial(target: Long): Boolean {
-        if (target == 99L) {
+        if ((target == 99L) || (target == 999L) || (target == 9999L) || (target == 99999L)) {
             return true
         } else if (target % 100L == 0L) {
             return true
