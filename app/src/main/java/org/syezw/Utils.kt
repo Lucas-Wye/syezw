@@ -14,4 +14,15 @@ object Utils {
             0
         }
     }
+    fun isSpecial(target: Long): Boolean {
+        if(target == 99L) {
+            return true
+        } else if (target % 100L == 0L) {
+            return true
+        } else if (target % 365L == 0L) {
+            return true
+        } else {
+            return false
+        }
+     }
 }

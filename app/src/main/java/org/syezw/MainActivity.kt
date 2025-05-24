@@ -43,9 +43,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 import org.syezw.Utils.daysFromTodayTo
+import org.syezw.Utils.isSpecial
 import org.syezw.ui.theme.SyezwTheme
 import org.syezw.ui.theme.LoveColor
-
+import org.syezw.ui.theme.Pink80
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,10 +105,10 @@ enum class AppDestinations(
 
 @Composable
 fun OurLove(modifier: Modifier = Modifier) {
-    var days by rememberSaveable { mutableStateOf<String?>(null) }
+    var days by rememberSaveable { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(Unit) {
-        days = daysFromTodayTo(2025, 4, 6).toString()
+        days = daysFromTodayTo(2025, 4, 6)
     }
 
     Column(
@@ -116,13 +117,24 @@ fun OurLove(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "在一起已经${days ?: "0"}天啦！",
+            text = "在一起已经${(days?: 0).toString()}天啦！",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = LoveColor,
+            color = Pink80,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+        if(isSpecial((days?:0)+1)) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "♡ 今天是第${((days?:0)+1).toString()}天哦 (｡･ω･｡)ﾉ",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = LoveColor,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -177,7 +189,6 @@ fun TaskList(tasks: List<Task>, TodoViewModel: TodoViewModel, modifier: Modifier
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = (index+1).toString())
                 Checkbox(
                     checked = task.isCompleted,
                     onCheckedChange = {
