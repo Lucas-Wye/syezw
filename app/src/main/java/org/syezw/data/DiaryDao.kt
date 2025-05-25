@@ -9,19 +9,16 @@ import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface TodoTaskDao {
+interface DiaryDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insert(todoTask: TodoTask)
+    suspend fun insert(diary: Diary)
 
     @Update
-    suspend fun update(todoTask: TodoTask)
+    suspend fun update(diary: Diary)
 
     @Delete
-    suspend fun delete(todoTask: TodoTask)
+    suspend fun delete(diary: Diary)
 
-    @Query("SELECT * FROM todo_list ORDER BY createdAt ASC")
-    fun getAll(): Flow<List<TodoTask>>
-
-//    @Query("DELETE FROM todo_list")
-//    suspend fun deleteAll()
+    @Query("SELECT * FROM diary_list ORDER BY createdAt ASC")
+    fun getAll(): Flow<List<Diary>>
 }

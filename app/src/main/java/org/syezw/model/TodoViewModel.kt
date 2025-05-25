@@ -26,7 +26,8 @@ class TodoViewModel(private val todoTaskDao: TodoTaskDao) : ViewModel() {
     fun addTask(name: String) {
         viewModelScope.launch {
             if (name.isNotBlank()) {
-                val _given_task = TodoTask(name = name)
+                val now = System.currentTimeMillis()
+                val _given_task = TodoTask(name = name, createdAt = now, completedAt = null)
                 todoTaskDao.insert(_given_task)
             }
         }
@@ -34,15 +35,16 @@ class TodoViewModel(private val todoTaskDao: TodoTaskDao) : ViewModel() {
 
     fun removeTask(task: TodoTask) {
         viewModelScope.launch {
-           val _given_task = TodoTask(id = task.id, name = task.name, isCompleted = task.isCompleted)
+           val _given_task = TodoTask(id = task.id, name = task.name, isCompleted = task.isCompleted, createdAt = task.createdAt, completedAt = task.completedAt)
            todoTaskDao.delete(_given_task)
         }
     }
 
     fun toggleTaskCompletion(task: TodoTask) {
         viewModelScope.launch {
+            val now = System.currentTimeMillis()
             val _given_task =
-                TodoTask(id = task.id, name = task.name, isCompleted = !task.isCompleted)
+                TodoTask(id = task.id, name = task.name, isCompleted = !task.isCompleted, createdAt = task.createdAt, completedAt = now)
             todoTaskDao.update(_given_task)
         }
     }
