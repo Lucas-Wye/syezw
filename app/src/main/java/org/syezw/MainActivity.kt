@@ -24,7 +24,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.viewmodel.compose.viewModel
+import org.syezw.data.TodoTaskDatabase
+import org.syezw.model.TodoViewModel
+import org.syezw.model.TodoViewModelFactory
 import org.syezw.ui.theme.SyezwTheme
 
 val Context.dataStore by preferencesDataStore(name = "settings")
@@ -45,6 +50,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SyezwApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    val context = LocalContext.current
+    // Initialize the database and ViewModel
+    val database = TodoTaskDatabase.getDatabase(context)
+    val todoTaskDao = database.todoTaskDao()
+    val todoViewModel: TodoViewModel = viewModel(factory = TodoViewModelFactory(todoTaskDao))
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -66,7 +76,10 @@ fun SyezwApp() {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             when (currentDestination) {
                 AppDestinations.HOME -> OurLove(modifier = Modifier.padding(innerPadding))
-                AppDestinations.TODO -> TODOScreen(modifier = Modifier.padding(innerPadding))
+                AppDestinations.TODO -> TODOScreen(
+                    viewModel = todoViewModel,
+                    modifier = Modifier.padding(innerPadding)
+                )
                 AppDestinations.PHOTO -> PhotoScreen(modifier = Modifier.padding(innerPadding))
                 AppDestinations.DIARY -> DiaryScreen(modifier = Modifier.padding(innerPadding))
             }

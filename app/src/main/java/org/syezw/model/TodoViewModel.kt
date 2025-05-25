@@ -1,33 +1,49 @@
 package org.syezw.model
 
-import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import org.syezw.data.TodoTask
+import org.syezw.data.TodoTaskDao
 
-data class Task(
-    val id: Int,
-    val user: String = "syezw",
-    val name: String,
-    var isCompleted: Boolean = false
-)
+class TodoViewModel(private val todoTaskDao: TodoTaskDao) : ViewModel() {
+    // MutableStateFlow 用于存储数据列表，初始值为空列表
+    private val _tasks = MutableStateFlow<List<TodoTask>>(emptyList())
 
-class TodoViewModel() : ViewModel() {
-    private val _tasks = mutableStateListOf<Task>()
-    val tasks: List<Task> get() = _tasks
+    // StateFlow 只读视图，暴露给外部使用
+    val tasks: StateFlow<List<TodoTask>> get() = _tasks
 
-    fun addTask(name: String) {
-        if (name.isNotBlank()) {
-            _tasks.add(Task(id = _tasks.size + 1, name = name))
+    init {
+        viewModelScope.launch {
+            todoTaskDao.getAll().collect { list ->
+                _tasks.value = list
+            }
         }
     }
 
-    fun removeTask(task: Task) {
-        _tasks.removeIf { it.id == task.id }
+    fun addTask(name: String) {
+        viewModelScope.launch {
+            if (name.isNotBlank()) {
+                val _given_task = TodoTask(name = name)
+                todoTaskDao.insert(_given_task)
+            }
+        }
     }
 
-    fun toggleTaskCompletion(task: Task) {
-        val index = _tasks.indexOfFirst { it.id == task.id }
-        if (index != -1) {
-            _tasks[index] = _tasks[index].copy(isCompleted = !_tasks[index].isCompleted)
+    fun removeTask(task: TodoTask) {
+        viewModelScope.launch {
+           val _given_task = TodoTask(id = task.id, name = task.name, isCompleted = task.isCompleted)
+           todoTaskDao.delete(_given_task)
+        }
+    }
+
+    fun toggleTaskCompletion(task: TodoTask) {
+        viewModelScope.launch {
+            val _given_task =
+                TodoTask(id = task.id, name = task.name, isCompleted = !task.isCompleted)
+            todoTaskDao.update(_given_task)
         }
     }
 }

@@ -20,13 +20,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,6 +37,7 @@ import org.syezw.model.TodoViewModel
 @Composable
 fun TODOScreen(viewModel: TodoViewModel = viewModel(), modifier: Modifier = Modifier) {
     var taskName by rememberSaveable { mutableStateOf("") }
+    val tasks by viewModel.tasks.collectAsState(initial = emptyList())
 
     Column(
         modifier = modifier
@@ -45,13 +46,6 @@ fun TODOScreen(viewModel: TodoViewModel = viewModel(), modifier: Modifier = Modi
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = "TODO List",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
             value = taskName,
             onValueChange = { taskName = it },
@@ -70,9 +64,8 @@ fun TODOScreen(viewModel: TodoViewModel = viewModel(), modifier: Modifier = Modi
         }
         Spacer(modifier = Modifier.height(16.dp))
         LazyColumn {
-            items(viewModel.tasks.size) { index ->
-                val task = viewModel.tasks[index]
-
+            items(tasks.size) { index ->
+                val task = tasks[index]
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -80,7 +73,7 @@ fun TODOScreen(viewModel: TodoViewModel = viewModel(), modifier: Modifier = Modi
                             if (task.isCompleted) MaterialTheme.colorScheme.background
                             else MaterialTheme.colorScheme.primaryContainer
                         )
-                        .padding(1.dp),
+                        .padding(0.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
