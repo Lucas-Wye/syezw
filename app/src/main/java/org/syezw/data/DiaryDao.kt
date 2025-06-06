@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DiaryDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(diary: Diary)
 
     @Update
@@ -24,4 +24,11 @@ interface DiaryDao {
 
     @Query("SELECT * FROM diary_list WHERE id = :id")
     fun getEntryById(id: Int): Flow<Diary?>
+
+    @Query("SELECT * FROM diary_list ORDER BY timestamp DESC")
+    suspend fun getAllEntriesList(): List<Diary> // New: For export and merge check
+
+    // Optional: For more efficient batch insert during import
+    @Insert(onConflict = OnConflictStrategy.IGNORE) // IGNORE if you don't want to replace based on PrimaryKey
+    suspend fun insertAll(diaries: List<Diary>)
 }

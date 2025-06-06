@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose.v1100)
+    implementation(libs.protolite.well.known.types)
 
     // Room
     val room_version = "2.7.1"

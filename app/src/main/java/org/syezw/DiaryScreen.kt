@@ -1,6 +1,8 @@
 package org.syezw
 
 import android.annotation.SuppressLint
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -29,6 +33,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -49,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import org.syezw.data.Diary
 import org.syezw.model.DiaryViewModel
@@ -57,6 +63,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryScreen(
     viewModel: DiaryViewModel,
@@ -65,14 +73,61 @@ fun DiaryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddEditDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val exportDiaryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"), onResult = { uri ->
+            uri?.let {
+                viewModel.exportDiariesToJson(context, it)
+            }
+        })
+
+    val importDiaryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(), onResult = { uri ->
+            uri?.let {
+                viewModel.importDiariesFromJson(context, it)
+            }
+        })
 
     Scaffold(
         modifier = modifier, floatingActionButton = {
-            FloatingActionButton(onClick = {
-                viewModel.clearInputFields() // Prepare for new entry
-                showAddEditDialog = true
-            }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Diary Entry")
+            Row( // 使用 Row 水平排列按钮
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp) // 按钮之间的间距
+            ) {
+                // 添加日记
+                FloatingActionButton(
+                    onClick = {
+                        viewModel.clearInputFields() // 为新条目做准备
+                        showAddEditDialog = true
+                    }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add Diary")
+                }
+                // 导入按钮
+                FloatingActionButton(
+                    onClick = {
+                        importDiaryLauncher.launch(arrayOf("application/json"))
+                    },
+                    modifier = Modifier.padding(end = 4.dp),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Import Diaries")
+                }
+                // 导出按钮
+                FloatingActionButton(
+                    onClick = {
+                        val timestamp =
+                            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(
+                                java.util.Date()
+                            )
+                        exportDiaryLauncher.launch("diaries_export_$timestamp.json")
+                    },
+                    modifier = Modifier.padding(end = 8.dp),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Export Diaries")
+                }
             }
         }) { paddingValues ->
         LazyColumn(
@@ -103,6 +158,7 @@ fun DiaryScreen(
                     }, onDeleteClick = { viewModel.deleteEntry(entry) })
             }
         }
+
 
         if (showAddEditDialog) {
             AddEditDiaryDialog(

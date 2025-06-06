@@ -1,16 +1,27 @@
 package org.syezw.model
 
 
+import android.content.Context
+import android.net.Uri
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.syezw.data.Diary
 import org.syezw.data.DiaryDao
+import java.io.BufferedReader
+import java.io.FileOutputStream
+import java.io.InputStreamReader
+import java.lang.reflect.Type
 
 data class DiaryUiState(
     val entries: List<Diary> = emptyList(),
@@ -26,9 +37,145 @@ data class DiaryUiState(
 class DiaryViewModel(private val diaryDao: DiaryDao) : ViewModel() {
     private val _uiState = MutableStateFlow(DiaryUiState())
     val uiState: StateFlow<DiaryUiState> = _uiState.asStateFlow()
+    private val gson = Gson()
 
     init {
         loadAllEntries()
+    }
+
+    fun exportDiariesToJson(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val diariesToExport =
+                    diaryDao.getAllEntriesList() // Need a non-Flow, one-shot list getter
+
+                if (diariesToExport.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "No diaries to export.", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
+                val jsonString = gson.toJson(diariesToExport)
+
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openFileDescriptor(uri, "w")
+                        ?.use { parcelFileDescriptor ->
+                            FileOutputStream(parcelFileDescriptor.fileDescriptor).use { fileOutputStream ->
+                                fileOutputStream.write(jsonString.toByteArray())
+                            }
+                        }
+                }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Diaries exported successfully!", Toast.LENGTH_SHORT)
+                        .show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    fun importDiariesFromJson(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            try {
+                val jsonString = StringBuilder()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        BufferedReader(InputStreamReader(inputStream)).use { reader ->
+                            var line: String?
+                            while (reader.readLine().also { line = it } != null) {
+                                jsonString.append(line)
+                            }
+                        }
+                    }
+                }
+
+                if (jsonString.isBlank()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Import file is empty.", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
+                val listType: Type = object : TypeToken<List<Diary>>() {}.type
+                val importedDiaries: List<Diary> = gson.fromJson(jsonString.toString(), listType)
+
+                if (importedDiaries.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            context, "No diaries found in the import file.", Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    return@launch
+                }
+
+                // --- Merge Logic ---
+                // For each imported diary, check if an entry with the same content and timestamp
+                // (or a unique combination of fields) already exists.
+                // This is a simple example; you might need more sophisticated duplicate detection.
+                val existingDiaries = diaryDao.getAllEntriesList() // Get current diaries
+                var newEntriesCount = 0
+                var updatedEntriesCount = 0 // If you decide to update instead of just skip
+
+                for (importedDiary in importedDiaries) {
+                    // Example: check by content and timestamp.
+                    // You might want to use a more robust unique identifier if available from the source,
+                    // or define "sameness" based on your needs.
+                    // If your Diary entity has a unique 'uuid' field that's generated on creation
+                    // and included in the export, that would be ideal for matching.
+                    // For now, let's assume if content AND timestamp match, it's a duplicate.
+                    // Note: IDs from the JSON might clash if they are auto-generated.
+                    // It's safer to insert them as new entries and let Room generate new IDs,
+                    // UNLESS the IDs are globally unique (like UUIDs) and you want to preserve them.
+
+                    val isDuplicate = existingDiaries.any { existing ->
+                        existing.content == importedDiary.content && existing.timestamp == importedDiary.timestamp
+                        // Add other fields for duplicate check if necessary, e.g., existing.location == importedDiary.location
+                    }
+
+                    if (!isDuplicate) {
+                        // Insert as a new entry, clearing the ID so Room generates a new one.
+                        diaryDao.insert(importedDiary.copy(id = 0))
+                        newEntriesCount++
+                    }
+                    // Optional: If you want to update existing entries based on some criteria
+                    // else {
+                    //     val existingEntryToUpdate = existingDiaries.find { ... }
+                    //     existingEntryToUpdate?.let {
+                    //         diaryDao.update(it.copy(tags = importedDiary.tags, ...)) // Merge fields
+                    //         updatedEntriesCount++
+                    //     }
+                    // }
+                }
+
+                withContext(Dispatchers.Main) {
+                    if (newEntriesCount > 0) {
+                        Toast.makeText(
+                            context,
+                            "$newEntriesCount new diaries imported and merged!",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "No new diaries to import or all entries were duplicates.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    // loadAllEntries() will be called automatically due to the Flow from DAO
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     private fun loadAllEntries() {
