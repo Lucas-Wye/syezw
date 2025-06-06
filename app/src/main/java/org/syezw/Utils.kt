@@ -15,7 +15,6 @@ object Utils {
             0
         }
     }
-
     fun isSpecial(target: Long): Boolean {
         if ((target == 99L) || (target == 999L) || (target == 9999L) || (target == 99999L)) {
             return true
@@ -27,4 +26,13 @@ object Utils {
             return false
         }
     }
+//    fun exportJson(context: Context, uri: Uri): Result<Unit> {
+//        val json = Json.encodeToString(tagNoteRepo.queryAllNoteShowBeanList().toSet())
+//        return runCatching {
+//            BufferedOutputStream(context.contentResolver.openOutputStream(uri)).use { out: BufferedOutputStream ->
+//                out.write(json.toByteArray())
+//            }
+//        }
+//    }
 }
+

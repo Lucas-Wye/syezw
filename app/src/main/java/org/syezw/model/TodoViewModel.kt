@@ -1,6 +1,7 @@
 package org.syezw.model
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,17 +36,37 @@ class TodoViewModel(private val todoTaskDao: TodoTaskDao) : ViewModel() {
 
     fun removeTask(task: TodoTask) {
         viewModelScope.launch {
-           val _given_task = TodoTask(id = task.id, name = task.name, isCompleted = task.isCompleted, createdAt = task.createdAt, completedAt = task.completedAt)
-           todoTaskDao.delete(_given_task)
+            val _given_task = TodoTask(
+                id = task.id,
+                name = task.name,
+                isCompleted = task.isCompleted,
+                createdAt = task.createdAt,
+                completedAt = task.completedAt
+            )
+            todoTaskDao.delete(_given_task)
         }
     }
 
     fun toggleTaskCompletion(task: TodoTask) {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
-            val _given_task =
-                TodoTask(id = task.id, name = task.name, isCompleted = !task.isCompleted, createdAt = task.createdAt, completedAt = now)
+            val _given_task = TodoTask(
+                id = task.id,
+                name = task.name,
+                isCompleted = !task.isCompleted,
+                createdAt = task.createdAt,
+                completedAt = now
+            )
             todoTaskDao.update(_given_task)
         }
+    }
+}
+
+class TodoViewModelFactory(private val todoTaskDao: TodoTaskDao) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(TodoViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST") return TodoViewModel(todoTaskDao) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

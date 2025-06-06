@@ -4,21 +4,24 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 
-@Database(entities = [Diary::class], version = 1, exportSchema = false)
-abstract class DiaryDatabase : RoomDatabase() {
+@Database(entities = [TodoTask::class, Diary::class], version = 4)
+@TypeConverters(Converters::class)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun todoTaskDao(): TodoTaskDao
     abstract fun diaryDao(): DiaryDao
 
     companion object {
         @Volatile
-        private var INSTANCE: DiaryDatabase? = null
+        private var INSTANCE: AppDatabase? = null
 
-        fun getDatabase(context: Context): DiaryDatabase {
+        fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
-                    DiaryDatabase::class.java,
-                    "diary_database"
+                    AppDatabase::class.java,
+                    "app_database"
                 ).fallbackToDestructiveMigration(false)
                     .build()
                     .also { INSTANCE = it }

@@ -12,3 +12,12 @@ val Pink40 = Color(0xFF7D5260)
 
 val DayColor = Color(0xFFFF91C8)
 val LoveColor = Color(0xFFFF69B4)
+
+val diaryBackgroundColors = listOf(
+    Color(0xFFFFF0F5), // LavenderBlush
+    Color(0xFFE6E6FA), // Lavender
+    Color(0xFFFAFAD2), // LightGoldenrodYellow
+    Color(0xFFF0FFF0), // Honeydew
+    Color(0xFFF5FFFA), // MintCream
+    Color(0xFFADD8E6)  // LightBlue
+)

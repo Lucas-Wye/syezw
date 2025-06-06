@@ -7,7 +7,9 @@ import androidx.room.PrimaryKey
 data class Diary(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val createdAt: Long,
-    val author: String,
     val content: String,
+    val author: String = "SYEZW",
+    val tags: List<String>, // List of tags
+    val timestamp: Long,    // Store time as Long (e.g., milliseconds since epoch)
+    val location: String? = null
 )
