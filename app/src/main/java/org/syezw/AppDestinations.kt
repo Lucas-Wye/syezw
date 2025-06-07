@@ -7,19 +7,16 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.ui.graphics.vector.ImageVector
 
-/**
- * Represents the different primary destinations within the application.
- * Each destination has a user-facing [label] and an [icon] for UI representation.
- */
 enum class AppDestinations(
-    val label: String, // Or use @StringRes for localization
+    val label: String,
     val icon: ImageVector,
 ) {
-    HOME(label = "Love", icon = Icons.Default.Favorite), // Consistent named arguments
-
-    TODO(label = "Todo", icon = Icons.Default.Check), // Consistent naming: "Todo"
-
-    PHOTO(label = "Photo", icon = Icons.Default.AccountBox),
-
-    DIARY(label = "Diary", icon = Icons.Default.MailOutline)
+    HOME(label = "Love", icon = Icons.Default.Favorite), TODO(
+        label = "Todo",
+        icon = Icons.Default.Check
+    ),
+    DIARY(label = "Diary", icon = Icons.Default.MailOutline), PHOTO(
+        label = "Photo",
+        icon = Icons.Default.AccountBox
+    ),
 }

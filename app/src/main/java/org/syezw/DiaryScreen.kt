@@ -171,6 +171,8 @@ fun DiaryScreen(
 fun DiaryEntryItem(
     entry: Diary, backgroundColor: Color, onEditClick: () -> Unit, onDeleteClick: () -> Unit
 ) {
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
@@ -180,7 +182,7 @@ fun DiaryEntryItem(
             Text(entry.content, style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Time: ${
+                "${
                     SimpleDateFormat(
                         "yyyy-MM-dd HH:mm", Locale.getDefault()
                     ).format(java.util.Date(entry.timestamp))
@@ -188,12 +190,11 @@ fun DiaryEntryItem(
             )
             if (entry.tags.isNotEmpty()) {
                 Text(
-                    "Tags: ${entry.tags.joinToString(", ")}",
-                    style = MaterialTheme.typography.bodySmall
+                    "#${entry.tags.joinToString(" #")}", style = MaterialTheme.typography.bodySmall
                 )
             }
             entry.location?.let {
-                Text("Location: $it", style = MaterialTheme.typography.bodySmall)
+                Text("地点: $it", style = MaterialTheme.typography.bodySmall)
             }
             Row(
                 modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End
@@ -201,14 +202,34 @@ fun DiaryEntryItem(
                 IconButton(onClick = onEditClick) {
                     Icon(Icons.Filled.Edit, contentDescription = "Edit")
                 }
-                IconButton(onClick = onDeleteClick) {
+                IconButton(onClick = { showDeleteConfirmDialog = true }) { // 点击时显示对话框
                     Icon(Icons.Filled.Delete, contentDescription = "Delete")
                 }
             }
         }
     }
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false }, // 点击对话框外部或返回键时关闭
+            title = { Text("Confirm Delete") },
+            text = { Text("Are you sure you want to delete this diary?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteClick() // 执行删除操作
+                        showDeleteConfirmDialog = false // 关闭对话框
+                    }) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false } // 关闭对话框
+                ) {
+                    Text("Cancel")
+                }
+            })
+    }
 }
-
 
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)

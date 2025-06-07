@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TodoTaskDao {
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(todoTask: TodoTask)
 
     @Update
@@ -19,9 +19,15 @@ interface TodoTaskDao {
     @Delete
     suspend fun delete(todoTask: TodoTask)
 
-    @Query("SELECT * FROM todo_list ORDER BY createdAt ASC")
+    @Query("SELECT * FROM todo_list ORDER BY createdAt DESC")
     fun getAll(): Flow<List<TodoTask>>
 
 //    @Query("DELETE FROM todo_list")
 //    suspend fun deleteAll()
+
+    @Query("SELECT * FROM todo_list ORDER BY createdAt DESC")
+    suspend fun getAllTasksList(): List<TodoTask> // Non-Flow for one-shot export
+
+    @Query("SELECT * FROM todo_list WHERE id = :taskId")
+    fun getTaskById(taskId: Int): Flow<TodoTask?>
 }

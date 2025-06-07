@@ -19,7 +19,7 @@ interface DiaryDao {
     @Delete
     suspend fun delete(diary: Diary)
 
-    @Query("SELECT * FROM diary_list ORDER BY timestamp ASC")
+    @Query("SELECT * FROM diary_list ORDER BY timestamp DESC")
     fun getAll(): Flow<List<Diary>>
 
     @Query("SELECT * FROM diary_list WHERE id = :id")

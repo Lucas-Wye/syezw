@@ -79,21 +79,19 @@ fun SyezwAppScreen() {
                     viewModel = todoViewModel, modifier = screenModifier
                 )
 
-                AppDestinations.PHOTO -> PhotoScreen(modifier = screenModifier)
-                AppDestinations.DIARY -> DiaryScreen( // Pass the DiaryViewModel
+                AppDestinations.DIARY -> DiaryScreen(
                     viewModel = diaryViewModel,
                     modifier = screenModifier,
                     onNavigateToEditEntry = { entryId ->
-                        // Here you would navigate to an Add/Edit screen
-                        // For simplicity now, we can show a dialog or another composable
-                        // This part needs a proper navigation solution (Jetpack Navigation Compose recommended)
+
                         if (entryId != null) {
                             diaryViewModel.getEntryById(entryId)
                         } else {
-                            diaryViewModel.clearInputFields() // For new entry
+                            diaryViewModel.clearInputFields()
                         }
-                        // For now, let's assume we show the add/edit UI within DiaryScreen or a dialog
                     })
+
+                AppDestinations.PHOTO -> PhotoScreen(modifier = screenModifier)
             }
         }
     }
