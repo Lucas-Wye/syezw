@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import org.syezw.data.Diary
+import org.syezw.data.SettingsManager
 import org.syezw.model.DiaryViewModel
 import org.syezw.ui.theme.diaryBackgroundColors
 import java.text.SimpleDateFormat
@@ -72,6 +73,8 @@ fun DiaryScreen(
     onNavigateToEditEntry: (Int?) -> Unit // Pass null for new entry, id for existing
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val dateFormatPattern by viewModel.currentDateFormat.collectAsState()
+
     var showAddEditDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val exportDiaryLauncher = rememberLauncherForActivityResult(
@@ -151,7 +154,8 @@ fun DiaryScreen(
             itemsIndexed(uiState.entries) { index, entry -> // Use itemsIndexed
                 val backgroundColor = diaryBackgroundColors[index % diaryBackgroundColors.size]
                 DiaryEntryItem(
-                    entry = entry, backgroundColor = backgroundColor, // Pass the color
+                    entry = entry, backgroundColor = backgroundColor,
+                    dateFormatPattern = dateFormatPattern,
                     onEditClick = {
                         viewModel.getEntryById(entry.id)
                         showAddEditDialog = true
@@ -169,7 +173,7 @@ fun DiaryScreen(
 
 @Composable
 fun DiaryEntryItem(
-    entry: Diary, backgroundColor: Color, onEditClick: () -> Unit, onDeleteClick: () -> Unit
+    entry: Diary, backgroundColor: Color, dateFormatPattern: String, onEditClick: () -> Unit, onDeleteClick: () -> Unit
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
@@ -182,11 +186,18 @@ fun DiaryEntryItem(
             Text(entry.content, style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "${
-                    SimpleDateFormat(
-                        "yyyy-MM-dd HH:mm", Locale.getDefault()
-                    ).format(java.util.Date(entry.timestamp))
-                }", style = MaterialTheme.typography.bodySmall
+                text = try {
+                    SimpleDateFormat(dateFormatPattern, Locale.getDefault()).format(java.util.Date(entry.timestamp))
+                } catch (e: Exception) {
+                    // Fallback in case of an invalid pattern somehow still being stored
+                    SimpleDateFormat(SettingsManager.DEFAULT_DATE_FORMAT_VALUE, Locale.getDefault()).format(
+                        java.util.Date(entry.timestamp)) + " (Error)"
+                },
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text( // Display the author
+                "By: ${entry.author}",
+                style = MaterialTheme.typography.bodySmall
             )
             if (entry.tags.isNotEmpty()) {
                 Text(

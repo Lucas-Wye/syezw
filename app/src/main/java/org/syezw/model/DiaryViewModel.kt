@@ -11,13 +11,17 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.syezw.data.Diary
 import org.syezw.data.DiaryDao
+import org.syezw.data.SettingsManager
 import java.io.BufferedReader
 import java.io.FileOutputStream
 import java.io.InputStreamReader
@@ -28,19 +32,33 @@ data class DiaryUiState(
     val selectedEntry: Diary? = null,
     // Add fields for managing input in Add/Edit screen if needed
     val currentContent: String = "",
-    val currentAuthor: String = "SYEZW",
+    val currentAuthor: String = SettingsManager.DEFAULT_AUTHOR_VALUE,
     val currentTags: List<String> = emptyList(),
     val currentTimestamp: Long = System.currentTimeMillis(),
     val currentLocation: String? = null
 )
 
-class DiaryViewModel(private val diaryDao: DiaryDao) : ViewModel() {
+class DiaryViewModel(private val diaryDao: DiaryDao,
+                     private val settingsManager: SettingsManager
+    ) : ViewModel() {
     private val _uiState = MutableStateFlow(DiaryUiState())
     val uiState: StateFlow<DiaryUiState> = _uiState.asStateFlow()
     private val gson = Gson()
+    // Flow for date format from settings, to be used by the UI
+    val currentDateFormat: StateFlow<String> = settingsManager.dateFormatFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = SettingsManager.DEFAULT_DATE_FORMAT_VALUE
+        )
 
     init {
         loadAllEntries()
+        // Update uiState with the initial author from settings
+        viewModelScope.launch {
+            val author = settingsManager.defaultAuthorFlow.first()
+            _uiState.update { it.copy(currentAuthor = author) }
+        }
     }
 
     fun exportDiariesToJson(context: Context, uri: Uri) {
@@ -232,13 +250,21 @@ class DiaryViewModel(private val diaryDao: DiaryDao) : ViewModel() {
                 return@launch
             }
 
+            val authorToUse = if (currentState.selectedEntry == null) {
+                settingsManager.defaultAuthorFlow.first() // Get latest author for new entries
+            } else {
+                currentState.selectedEntry.author // Keep existing author for edited entries (or make this configurable too)
+            }
+
             val entryToSave = currentState.selectedEntry?.copy(
                 content = currentState.currentContent,
+                author = authorToUse,
                 tags = currentState.currentTags,
                 timestamp = currentState.currentTimestamp,
                 location = currentState.currentLocation
             ) ?: Diary(
                 content = currentState.currentContent,
+                author = authorToUse,
                 tags = currentState.currentTags,
                 timestamp = currentState.currentTimestamp,
                 location = currentState.currentLocation
@@ -261,22 +287,30 @@ class DiaryViewModel(private val diaryDao: DiaryDao) : ViewModel() {
     }
 
     fun clearInputFields() {
-        _uiState.update {
-            it.copy(
-                selectedEntry = null,
-                currentContent = "",
-                currentTags = emptyList(),
-                currentTimestamp = System.currentTimeMillis(),
-                currentLocation = null
-            )
+        viewModelScope.launch { // Launch a coroutine
+            val currentDefaultAuthor = settingsManager.defaultAuthorFlow.first() // Call suspend function
+            _uiState.update {
+                it.copy(
+                    selectedEntry = null,
+                    currentContent = "",
+                    currentAuthor = currentDefaultAuthor, // Use the fetched author
+                    currentTags = emptyList(),
+                    currentTimestamp = System.currentTimeMillis(),
+                    currentLocation = null
+                )
+            }
         }
     }
 }
 
-class DiaryViewModelFactory(private val diaryDao: DiaryDao) : ViewModelProvider.Factory {
+class DiaryViewModelFactory(
+    private val diaryDao: DiaryDao,
+    private val settingsManager: SettingsManager // Add SettingsManager
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(DiaryViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST") return DiaryViewModel(diaryDao) as T
+            @Suppress("UNCHECKED_CAST")
+            return DiaryViewModel(diaryDao, settingsManager) as T // Pass settingsManager
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

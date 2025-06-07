@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class AppDestinations(
@@ -19,4 +20,5 @@ enum class AppDestinations(
         label = "Photo",
         icon = Icons.Default.AccountBox
     ),
+    SETTINGS("Settings", Icons.Filled.Settings)
 }
