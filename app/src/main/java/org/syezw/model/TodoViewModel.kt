@@ -12,9 +12,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.syezw.preference.SettingsManager
 import org.syezw.data.TodoTask
 import org.syezw.data.TodoTaskDao
 import java.io.BufferedReader
@@ -26,18 +28,25 @@ data class TodoUiState(
     val tasks: List<TodoTask> = emptyList(),
     val selectedTask: TodoTask? = null,
     val currentName: String = "",
+    val currentAuthor: String = SettingsManager.DEFAULT_AUTHOR_VALUE,
     val currentIsCompleted: Boolean = false, // Added for completeness in dialog
     val currentCreatedAt: Long = System.currentTimeMillis(), // Default to now for new tasks
     val currentCompletedAt: Long? = null
 )
 
-class TodoViewModel(private val todoTaskDao: TodoTaskDao) : ViewModel() {
+class TodoViewModel(
+    private val todoTaskDao: TodoTaskDao, private val settingsManager: SettingsManager
+) : ViewModel() {
     private val _uiState = MutableStateFlow(TodoUiState())
     val uiState: StateFlow<TodoUiState> = _uiState.asStateFlow()
     private val gson = Gson()
 
     init {
         loadAllTasks()
+        viewModelScope.launch {
+            val author = settingsManager.defaultAuthorFlow.first()
+            _uiState.update { it.copy(currentAuthor = author) }
+        }
     }
 
     private fun loadAllTasks() {
@@ -114,9 +123,7 @@ class TodoViewModel(private val todoTaskDao: TodoTaskDao) : ViewModel() {
                 if (importedTasks.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
-                            context,
-                            "No tasks found in the import file.",
-                            Toast.LENGTH_SHORT
+                            context, "No tasks found in the import file.", Toast.LENGTH_SHORT
                         ).show()
                     }
                     return@launch
@@ -182,8 +189,10 @@ class TodoViewModel(private val todoTaskDao: TodoTaskDao) : ViewModel() {
             return
         }
         viewModelScope.launch {
+            val authorToUse = settingsManager.defaultAuthorFlow.first()
             val newTask = TodoTask(
                 name = name,
+                author = authorToUse,
                 createdAt = System.currentTimeMillis(),
                 isCompleted = false,
                 completedAt = null
@@ -245,22 +254,29 @@ class TodoViewModel(private val todoTaskDao: TodoTaskDao) : ViewModel() {
     // as completion is usually a toggle and createdAt is fixed.
 
     fun clearInputFields() { // Reset for new task entry
-        _uiState.update {
-            it.copy(
-                selectedTask = null,
-                currentName = "",
-                currentIsCompleted = false,
-                currentCreatedAt = System.currentTimeMillis(),
-                currentCompletedAt = null
-            )
+        viewModelScope.launch { // Launch a coroutine
+            _uiState.update {
+                val currentDefaultAuthor =
+                    settingsManager.defaultAuthorFlow.first() // Call suspend function
+                it.copy(
+                    selectedTask = null,
+                    currentName = "",
+                    currentAuthor = currentDefaultAuthor, // Use the fetched author
+                    currentIsCompleted = false,
+                    currentCreatedAt = System.currentTimeMillis(),
+                    currentCompletedAt = null
+                )
+            }
         }
     }
 }
 
-class TodoViewModelFactory(private val todoTaskDao: TodoTaskDao) : ViewModelProvider.Factory {
+class TodoViewModelFactory(
+    private val todoTaskDao: TodoTaskDao, private val settingsManager: SettingsManager
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TodoViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST") return TodoViewModel(todoTaskDao) as T
+            @Suppress("UNCHECKED_CAST") return TodoViewModel(todoTaskDao, settingsManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

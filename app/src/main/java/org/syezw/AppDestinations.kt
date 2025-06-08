@@ -12,13 +12,8 @@ enum class AppDestinations(
     val label: String,
     val icon: ImageVector,
 ) {
-    HOME(label = "Love", icon = Icons.Default.Favorite), TODO(
-        label = "Todo",
-        icon = Icons.Default.Check
-    ),
-    DIARY(label = "Diary", icon = Icons.Default.MailOutline), PHOTO(
-        label = "Photo",
-        icon = Icons.Default.AccountBox
-    ),
-    SETTINGS("Settings", Icons.Filled.Settings)
+    HOME(label = "Love", icon = Icons.Default.Favorite), 
+    TODO(label = "Todo", icon = Icons.Default.Check),
+    DIARY(label = "Diary", icon = Icons.Default.MailOutline),
+    SETTINGS("Settings", Icons.Filled.Settings),
 }

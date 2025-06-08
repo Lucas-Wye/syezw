@@ -1,4 +1,4 @@
-package org.syezw
+package org.syezw.screen
 
 import android.annotation.SuppressLint
 import android.widget.Toast
@@ -58,6 +58,7 @@ fun TODOScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showAddEditDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
 
     val exportTodosLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"), onResult = { uri ->
@@ -124,7 +125,7 @@ fun TODOScreen(
                 }
             }
             items(uiState.tasks, key = { it.id }) { task ->
-                TodoTaskItem( // Renamed to TodoTaskItem
+                TodoTaskItem(
                     task = task,
                     onEditClick = {
                         viewModel.selectTask(task)
@@ -146,7 +147,7 @@ fun TODOScreen(
 }
 
 @Composable
-fun TodoTaskItem( // Updated to reflect new fields
+fun TodoTaskItem(
     task: TodoTask, onEditClick: () -> Unit, onDeleteClick: () -> Unit, onToggleComplete: () -> Unit
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -170,21 +171,17 @@ fun TodoTaskItem( // Updated to reflect new fields
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "${
-                        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(
-                            Date(
-                                task.createdAt
-                            )
+                    text = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
+                        Date(
+                            task.createdAt
                         )
-                    }", style = MaterialTheme.typography.bodySmall
+                    ), style = MaterialTheme.typography.bodySmall
                 )
                 if (task.isCompleted && task.completedAt != null) {
                     Text(
-                        text = "${
-                            SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(
-                                Date(task.completedAt)
-                            )
-                        }",
+                        text = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
+                            Date(task.completedAt)
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -241,24 +238,6 @@ fun AddEditTodoDialog( // Updated for new fields
                     isError = uiState.currentName.isBlank(),
                     singleLine = true
                 )
-                // createdAt and completedAt are usually managed by the system/ViewModel,
-                // not directly edited in a simple dialog, unless you have specific requirements.
-                // isCompleted can be a Checkbox if you want to edit it here.
-                // if (currentSelectedTask != null) { // Show completion toggle only for existing tasks
-                //     Row(verticalAlignment = Alignment.CenterVertically) {
-                //         Checkbox(
-                //             checked = uiState.currentIsCompleted, // Or currentSelectedTask.isCompleted if currentIsCompleted is not for this purpose
-                //             onCheckedChange = {
-                //                 // This is tricky in a dialog. Usually, the list item handles toggle.
-                //                 // For an edit dialog, you might just show status or allow explicit set.
-                //                 // For simplicity, we'll let `updateTask` handle completion logic based on `isCompleted` state.
-                //                 // viewModel.updateCurrentIsCompleted(it) // You'd need this in ViewModel and UiState
-                //                 Toast.makeText(context, "Completion status can be changed via list toggle or save.", Toast.LENGTH_SHORT).show()
-                //             }
-                //         )
-                //         Text("Completed")
-                //     }
-                // }
             }
         },
         confirmButton = {

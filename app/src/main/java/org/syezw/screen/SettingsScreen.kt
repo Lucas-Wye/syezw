@@ -1,24 +1,16 @@
-package org.syezw
+package org.syezw.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -29,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import org.syezw.model.SettingsViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -37,15 +28,14 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    settingsViewModel: SettingsViewModel,
-    modifier: Modifier = Modifier
+    settingsViewModel: SettingsViewModel, modifier: Modifier = Modifier
 ) {
     val currentAuthor by settingsViewModel.defaultAuthor.collectAsState()
-    val currentDateFormat by settingsViewModel.dateFormat.collectAsState()
+    val currentDateTogether by settingsViewModel.dateTogether.collectAsState()
 
     var authorInput by remember(currentAuthor) { mutableStateOf(currentAuthor) }
-    var dateFormatInput by remember(currentDateFormat) { mutableStateOf(currentDateFormat) }
-    var dateFormatError by remember { mutableStateOf<String?>(null) }
+    var dateTogetherInput by remember(currentDateTogether) { mutableStateOf(currentDateTogether) }
+    var dateError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     Scaffold() { paddingValues ->
@@ -60,32 +50,31 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = authorInput,
                 onValueChange = { authorInput = it },
-                label = { Text("Author Name") },
+                label = { Text("Name") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
-
             OutlinedTextField(
-                value = dateFormatInput,
+                value = dateTogetherInput,
                 onValueChange = {
-                    dateFormatInput = it
+                    dateTogetherInput = it
                     // Basic validation on input change
-                    dateFormatError = try {
+                    dateError = try {
                         SimpleDateFormat(it, Locale.getDefault()) // Test format
                         null // No error
                     } catch (e: IllegalArgumentException) {
-                        "Invalid date format pattern"
+                        "Invalid date pattern"
                     }
                 },
-                label = { Text("Date Display Format") },
-                placeholder = { Text("e.g., yyyy-MM-dd or dd/MM/yy HH:mm") },
+                label = { Text("Together Date") },
+                placeholder = { Text("e.g., 2025-04-06") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                isError = dateFormatError != null
+                isError = dateError != null
             )
-            if (dateFormatError != null) {
+            if (dateError != null) {
                 Text(
-                    text = dateFormatError!!,
+                    text = dateError!!,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.fillMaxWidth()
@@ -93,13 +82,13 @@ fun SettingsScreen(
             }
             Button(
                 onClick = {
-                    if (dateFormatError == null) { // Only save if format is valid
+                    if (dateError == null) { // Only save if format is valid
                         settingsViewModel.updateDefaultAuthor(authorInput)
-                        settingsViewModel.updateDateFormat(dateFormatInput)
+                        settingsViewModel.updateDate(dateTogetherInput)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = dateFormatError == null // Disable button if format is invalid
+                enabled = dateError == null // Disable button if format is invalid
             ) {
                 Text("Save Settings")
             }

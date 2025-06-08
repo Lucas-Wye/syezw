@@ -15,6 +15,23 @@ object Utils {
             0
         }
     }
+
+    fun extractDateComponents(dateString: String): Triple<Int, Int, Int>? {
+        return try {
+            val parts = dateString.split("-")
+            if (parts.size == 3) {
+                val year = parts[0].toInt()
+                val month = parts[1].toInt()
+                val day = parts[2].toInt()
+                Triple(year, month, day)
+            } else {
+                null
+            }
+        } catch (e: NumberFormatException) {
+            null
+        }
+    }
+
     fun isSpecial(target: Long): Boolean {
         if ((target == 99L) || (target == 999L) || (target == 9999L) || (target == 99999L)) {
             return true

@@ -23,13 +23,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.syezw.data.AppDatabase
-import org.syezw.data.SettingsManager
+import org.syezw.preference.SettingsManager
 import org.syezw.model.DiaryViewModel
 import org.syezw.model.DiaryViewModelFactory
 import org.syezw.model.SettingsViewModel
 import org.syezw.model.SettingsViewModelFactory
 import org.syezw.model.TodoViewModel
 import org.syezw.model.TodoViewModelFactory
+import org.syezw.screen.DiaryScreen
+import org.syezw.screen.OurLove
+import org.syezw.screen.OurLoveViewModel
+import org.syezw.screen.OurLoveViewModelFactory
+import org.syezw.screen.SettingsScreen
+import org.syezw.screen.TODOScreen
 import org.syezw.ui.theme.SyezwTheme
 
 val Context.dataStore by preferencesDataStore(name = "settings")
@@ -54,10 +60,13 @@ fun SyezwAppScreen() {
     val settingsManager = remember { SettingsManager(context.dataStore) } // Access dataStore here
 
     val todoViewModel: TodoViewModel = viewModel(
-        factory = TodoViewModelFactory(database.todoTaskDao())
+        factory = TodoViewModelFactory(database.todoTaskDao(), settingsManager)
     )
     val diaryViewModel: DiaryViewModel = viewModel(
         factory = DiaryViewModelFactory(database.diaryDao(), settingsManager)
+    )
+    val ourLoveViewModel: OurLoveViewModel = viewModel(
+        factory = OurLoveViewModelFactory(settingsManager)
     )
     val settingsViewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModelFactory(context.applicationContext as Application) // Assuming you have a factory
@@ -82,7 +91,9 @@ fun SyezwAppScreen() {
             val screenModifier = Modifier.padding(innerPadding)
 
             when (currentDestination) {
-                AppDestinations.HOME -> OurLove(modifier = screenModifier)
+                AppDestinations.HOME -> OurLove(
+                    viewModel = ourLoveViewModel, modifier = screenModifier
+                )
 
                 AppDestinations.TODO -> TODOScreen(
                     viewModel = todoViewModel, modifier = screenModifier
@@ -100,7 +111,6 @@ fun SyezwAppScreen() {
                         }
                     })
 
-                AppDestinations.PHOTO -> PhotoScreen(modifier = screenModifier)
                 AppDestinations.SETTINGS -> SettingsScreen(
                     settingsViewModel = settingsViewModel, modifier = screenModifier
                 )

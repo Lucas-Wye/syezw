@@ -9,23 +9,23 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import org.syezw.data.SettingsManager
+import org.syezw.preference.SettingsManager
 import org.syezw.dataStore
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsManager = SettingsManager(application.dataStore)
 
     val defaultAuthor: StateFlow<String> = settingsManager.defaultAuthorFlow.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = SettingsManager.DEFAULT_AUTHOR_VALUE
-        )
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = SettingsManager.DEFAULT_AUTHOR_VALUE
+    )
 
-    val dateFormat: StateFlow<String> = settingsManager.dateFormatFlow.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = SettingsManager.DEFAULT_DATE_FORMAT_VALUE
-        )
+    val dateTogether: StateFlow<String> = settingsManager.dateFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = SettingsManager.DEFAULT_DATE_VALUE
+    )
 
     fun updateDefaultAuthor(newAuthor: String) {
         viewModelScope.launch {
@@ -33,9 +33,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun updateDateFormat(newFormat: String) {
+    fun updateDate(newFormat: String) {
         viewModelScope.launch {
-            settingsManager.setDateFormat(newFormat)
+            settingsManager.setDate(newFormat)
         }
     }
 }

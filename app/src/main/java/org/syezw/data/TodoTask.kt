@@ -8,6 +8,7 @@ data class TodoTask(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val name: String,
+    val author: String = "SYEZW",
     var isCompleted: Boolean = false,
     val createdAt: Long,
     val completedAt: Long?
