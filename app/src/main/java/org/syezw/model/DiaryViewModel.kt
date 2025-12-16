@@ -33,7 +33,15 @@ data class DiaryUiState(
     val currentAuthor: String = SettingsManager.DEFAULT_AUTHOR_VALUE,
     val currentTags: List<String> = emptyList(),
     val currentTimestamp: Long = System.currentTimeMillis(),
-    val currentLocation: String? = null
+    val currentLocation: String? = null,
+    // 筛选相关状态
+    val allEntries: List<Diary> = emptyList(), // 未筛选的日记
+    val selectedFilterTag: String? = null, // 当前选中的标签筛选
+    val selectedFilterAuthor: String? = null, // 当前选中的作者筛选
+    val availableTags: List<String> = emptyList(), // 所有可用的标签
+    val availableAuthors: List<String> = emptyList(), // 所有可用的作者
+    val availableLocations: List<String> = emptyList(), // 所有可用的地点
+    val searchQuery: String = "" // 搜索查询文本
 )
 
 class DiaryViewModel(
@@ -56,7 +64,7 @@ class DiaryViewModel(
         viewModelScope.launch {
             try {
                 val diariesToExport =
-                    diaryDao.getAllEntriesList() // Need a non-Flow, one-shot list getter
+                    diaryDao.getAllEntriesList()
 
                 if (diariesToExport.isEmpty()) {
                     withContext(Dispatchers.Main) {
@@ -190,8 +198,114 @@ class DiaryViewModel(
     private fun loadAllEntries() {
         viewModelScope.launch {
             diaryDao.getAll().collect { entries ->
-                _uiState.update { it.copy(entries = entries) }
+                // 提取所有标签、作者和地点
+                val allTags = entries.flatMap { it.tags }.distinct().sorted()
+                val allAuthors = entries.map { it.author }.distinct().sorted()
+                val allLocations = entries.mapNotNull { it.location }.distinct().sorted()
+
+                _uiState.update { currentState ->
+                    val filteredEntries = applyFilters(
+                        entries,
+                        currentState.selectedFilterTag,
+                        currentState.selectedFilterAuthor,
+                        currentState.searchQuery
+                    )
+                    currentState.copy(
+                        entries = filteredEntries,
+                        allEntries = entries,
+                        availableTags = allTags,
+                        availableAuthors = allAuthors,
+                        availableLocations = allLocations
+                    )
+                }
             }
+        }
+    }
+
+    private fun applyFilters(
+        entries: List<Diary>,
+        filterTag: String?,
+        filterAuthor: String?,
+        searchQuery: String
+    ): List<Diary> {
+        var filtered = entries
+
+        // 应用标签筛选
+        if (filterTag != null) {
+            filtered = filtered.filter { it.tags.contains(filterTag) }
+        }
+
+        // 应用作者筛选
+        if (filterAuthor != null) {
+            filtered = filtered.filter { it.author == filterAuthor }
+        }
+
+        // 应用搜索查询（搜索内容、标签或地点）
+        if (searchQuery.isNotBlank()) {
+            val query = searchQuery.lowercase()
+            filtered = filtered.filter { diary ->
+                diary.content.lowercase().contains(query) ||
+                        diary.tags.any { it.lowercase().contains(query) } ||
+                        diary.location?.lowercase()?.contains(query) == true
+            }
+        }
+
+        return filtered
+    }
+
+    fun setFilterTag(tag: String?) {
+        _uiState.update { currentState ->
+            val filteredEntries = applyFilters(
+                currentState.allEntries,
+                tag,
+                currentState.selectedFilterAuthor,
+                currentState.searchQuery
+            )
+            currentState.copy(
+                selectedFilterTag = tag,
+                entries = filteredEntries
+            )
+        }
+    }
+
+    fun setFilterAuthor(author: String?) {
+        _uiState.update { currentState ->
+            val filteredEntries = applyFilters(
+                currentState.allEntries,
+                currentState.selectedFilterTag,
+                author,
+                currentState.searchQuery
+            )
+            currentState.copy(
+                selectedFilterAuthor = author,
+                entries = filteredEntries
+            )
+        }
+    }
+
+    fun setSearchQuery(query: String) {
+        _uiState.update { currentState ->
+            val filteredEntries = applyFilters(
+                currentState.allEntries,
+                currentState.selectedFilterTag,
+                currentState.selectedFilterAuthor,
+                query
+            )
+            currentState.copy(
+                searchQuery = query,
+                entries = filteredEntries
+            )
+        }
+    }
+
+    fun clearFilters() {
+        _uiState.update { currentState ->
+            currentState.copy(
+                selectedFilterTag = null,
+                selectedFilterAuthor = null,
+                searchQuery = "",
+                entries = currentState.allEntries
+            )
         }
     }
 

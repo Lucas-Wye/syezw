@@ -31,7 +31,9 @@ data class TodoUiState(
     val currentAuthor: String = SettingsManager.DEFAULT_AUTHOR_VALUE,
     val currentIsCompleted: Boolean = false, // Added for completeness in dialog
     val currentCreatedAt: Long = System.currentTimeMillis(), // Default to now for new tasks
-    val currentCompletedAt: Long? = null
+    val currentCompletedAt: Long? = null,
+    val allTasks: List<TodoTask> = emptyList(), // 保存所有未筛选的任务
+    val searchQuery: String = "" // 搜索查询文本
 )
 
 class TodoViewModel(
@@ -52,8 +54,41 @@ class TodoViewModel(
     private fun loadAllTasks() {
         viewModelScope.launch {
             todoTaskDao.getAll().collect { tasks -> // Using getAll() from your Dao
-                _uiState.update { it.copy(tasks = tasks) }
+                val sortedTasks = tasks.sortedWith(
+                    // 首先比较 isCompleted 状态，false (未完成) 会排在 true (已完成) 前面
+                    compareBy<TodoTask> { it.isCompleted }
+                        // 然后在每个状态分组内部，按创建时间降序排列 (最新的在最前)
+                        .thenByDescending { it.createdAt }
+                )
+                
+                _uiState.update { currentState ->
+                    val filteredTasks = applySearch(sortedTasks, currentState.searchQuery)
+                    currentState.copy(
+                        tasks = filteredTasks,
+                        allTasks = sortedTasks
+                    )
+                }
             }
+        }
+    }
+    
+    private fun applySearch(tasks: List<TodoTask>, searchQuery: String): List<TodoTask> {
+        if (searchQuery.isBlank()) {
+            return tasks
+        }
+        val query = searchQuery.lowercase()
+        return tasks.filter { task ->
+            task.name.lowercase().contains(query)
+        }
+    }
+    
+    fun setSearchQuery(query: String) {
+        _uiState.update { currentState ->
+            val filteredTasks = applySearch(currentState.allTasks, query)
+            currentState.copy(
+                searchQuery = query,
+                tasks = filteredTasks
+            )
         }
     }
 

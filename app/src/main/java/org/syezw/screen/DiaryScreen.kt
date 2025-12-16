@@ -7,6 +7,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,10 +23,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -32,14 +37,17 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -55,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.syezw.data.Diary
 import org.syezw.model.DiaryViewModel
@@ -64,7 +73,7 @@ import java.util.Calendar
 import java.util.Locale
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DiaryScreen(
     viewModel: DiaryViewModel,
@@ -72,6 +81,7 @@ fun DiaryScreen(
     onNavigateToEditEntry: (Int?) -> Unit // Pass null for new entry, id for existing
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var expandFilterSection by remember { mutableStateOf(false) }
 
     var showAddEditDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -138,10 +148,196 @@ fun DiaryScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            item {
+                Column {
+                    Text(
+                        text = "总共有 ${uiState.allEntries.size} 篇日记，记得写呢",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "${uiState.availableAuthors.size} 个作者 | ${uiState.availableTags.size} 个标签 | ${uiState.availableLocations.size} 个地点",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // 搜索框
+            item {
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = { viewModel.setSearchQuery(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("搜索日记内容、标签或地点...") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = "搜索")
+                    },
+                    trailingIcon = {
+                        if (uiState.searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "清除搜索")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.large
+                )
+            }
+
+            // 筛选区域
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { expandFilterSection = !expandFilterSection },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "筛选 (${if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null) "已启用" else "未启用"})",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null) {
+                                    IconButton(
+                                        onClick = { viewModel.clearFilters() },
+                                        modifier = Modifier.padding(0.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Clear,
+                                            contentDescription = "清除筛选",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    if (expandFilterSection) Icons.Default.Clear else Icons.Default.Menu,
+                                    contentDescription = if (expandFilterSection) "收起" else "展开"
+                                )
+                            }
+                        }
+
+                        if (expandFilterSection) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            HorizontalDivider()
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 按标签筛选
+                            Text(
+                                text = "按标签筛选:",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            if (uiState.availableTags.isEmpty()) {
+                                Text(
+                                    text = "暂无标签",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            } else {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    uiState.availableTags.forEach { tag ->
+                                        FilterChip(
+                                            selected = uiState.selectedFilterTag == tag,
+                                            onClick = {
+                                                if (uiState.selectedFilterTag == tag) {
+                                                    viewModel.setFilterTag(null)
+                                                } else {
+                                                    viewModel.setFilterTag(tag)
+                                                }
+                                            },
+                                            label = {
+                                                Text(
+                                                    tag,
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 按作者筛选
+                            Text(
+                                text = "按作者筛选:",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            if (uiState.availableAuthors.isEmpty()) {
+                                Text(
+                                    text = "暂无作者",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            } else {
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    uiState.availableAuthors.take(5).forEach { author ->
+                                        FilterChip(
+                                            selected = uiState.selectedFilterAuthor == author,
+                                            onClick = {
+                                                if (uiState.selectedFilterAuthor == author) {
+                                                    viewModel.setFilterAuthor(null)
+                                                } else {
+                                                    viewModel.setFilterAuthor(author)
+                                                }
+                                            },
+                                            label = {
+                                                Text(
+                                                    author,
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 显示筛选结果统计
+                            if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "显示 ${uiState.entries.size} / ${uiState.allEntries.size} 篇日记",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             if (uiState.entries.isEmpty()) {
                 item {
                     Text(
-                        "No diary entries yet. Tap the '+' button to add one!",
+                        if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null || uiState.searchQuery.isNotEmpty())
+                            "没有符合筛选/搜索条件的日记"
+                        else
+                            "No diary entries yet. Tap the '+' button to add one!",
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -254,6 +450,9 @@ fun AddEditDiaryDialog(
 
     val scrollState = rememberScrollState()
 
+    // 2. 定义预设标签列表
+    val suggestedTags = listOf("爱情", "生活", "工作")
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (uiState.selectedEntry == null) "Add Diary" else "Edit Diary") },
@@ -274,11 +473,12 @@ fun AddEditDiaryDialog(
                     isError = uiState.currentContent.isBlank() // Simple validation
                 )
                 // Time Picker
-                Row(modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showDatePicker = true }
-                    .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-                    .padding(16.dp), // Adjust padding as needed
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showDatePicker = true }
+                        .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                        .padding(16.dp), // Adjust padding as needed
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = SimpleDateFormat(
@@ -310,6 +510,8 @@ fun AddEditDiaryDialog(
                 if (uiState.currentTags.isEmpty()) {
                     Text("Please add at least one tag.", color = MaterialTheme.colorScheme.error)
                 }
+
+                // 已添加的标签
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -327,6 +529,24 @@ fun AddEditDiaryDialog(
                             })
                     }
                 }
+
+                // 3. 添加建议标签的 UI
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    suggestedTags.forEach { tag ->
+                        // 如果该标签尚未被添加，则显示建议
+                        if (!uiState.currentTags.contains(tag)) {
+                            SuggestionChip(
+                                onClick = { viewModel.addTag(tag) },
+                                label = { Text(tag) }
+                            )
+                        }
+                    }
+                }
+
                 // Location
                 OutlinedTextField(
                     value = uiState.currentLocation ?: "",

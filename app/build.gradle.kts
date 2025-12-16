@@ -61,6 +61,9 @@ dependencies {
     implementation(libs.androidx.activity.compose.v1100)
     implementation(libs.protolite.well.known.types)
 
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
     // Room
     val room_version = "2.7.1"
     implementation("androidx.room:room-runtime:$room_version")
@@ -85,6 +88,9 @@ dependencies {
     implementation("androidx.room:room-paging:$room_version")
 
     implementation(libs.gson)
+    
+    // Coil for image loading
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
