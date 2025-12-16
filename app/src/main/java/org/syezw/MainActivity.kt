@@ -13,6 +13,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,17 +24,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.syezw.data.AppDatabase
-import org.syezw.preference.SettingsManager
 import org.syezw.model.DiaryViewModel
 import org.syezw.model.DiaryViewModelFactory
+import org.syezw.model.PeriodViewModel
+import org.syezw.model.PeriodViewModelFactory
 import org.syezw.model.SettingsViewModel
 import org.syezw.model.SettingsViewModelFactory
 import org.syezw.model.TodoViewModel
 import org.syezw.model.TodoViewModelFactory
+import org.syezw.preference.SettingsManager
 import org.syezw.screen.DiaryScreen
 import org.syezw.screen.OurLove
 import org.syezw.screen.OurLoveViewModel
 import org.syezw.screen.OurLoveViewModelFactory
+import org.syezw.screen.PeriodTrackingScreen
 import org.syezw.screen.SettingsScreen
 import org.syezw.screen.TODOScreen
 import org.syezw.ui.theme.SyezwTheme
@@ -57,8 +61,12 @@ fun SyezwAppScreen() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     val context = LocalContext.current
     val database = AppDatabase.getDatabase(context)
-    val settingsManager = remember { SettingsManager(context.dataStore) } // Access dataStore here
+    val settingsManager = remember { SettingsManager(context.dataStore) }
 
+    // --- ViewModel Instantiation ---
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModelFactory(context.dataStore)
+    )
     val todoViewModel: TodoViewModel = viewModel(
         factory = TodoViewModelFactory(database.todoTaskDao(), settingsManager)
     )
@@ -68,23 +76,35 @@ fun SyezwAppScreen() {
     val ourLoveViewModel: OurLoveViewModel = viewModel(
         factory = OurLoveViewModelFactory(settingsManager)
     )
-    val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(context.applicationContext as Application) // Assuming you have a factory
+
+    val periodViewModel: PeriodViewModel = viewModel(
+        factory = PeriodViewModelFactory(database.periodDao()) // 之前是 settingsViewModel，现在是 database.periodDao()
     )
+
+    // 从 SettingsViewModel 监听周期记录的开关状态
+    val isPeriodTrackingEnabled by settingsViewModel.isPeriodTrackingEnabled.collectAsState()
+
+    // 根据开关状态，动态地创建可见的导航目标列表
+    val visibleDestinations = remember(isPeriodTrackingEnabled) {
+        AppDestinations.entries.filter { destination ->
+            destination != AppDestinations.PERIOD || isPeriodTrackingEnabled
+        }
+    }
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            AppDestinations.entries.forEach { destination ->
+            visibleDestinations.forEach { destination ->
                 item(
                     icon = {
-                    Icon(
-                        imageVector = destination.icon,
-                        contentDescription = destination.label // Use label for content description
-                    )
-                },
+                        Icon(
+                            imageVector = destination.icon,
+                            contentDescription = destination.label
+                        )
+                    },
                     label = { Text(destination.label) },
                     selected = destination == currentDestination,
-                    onClick = { currentDestination = destination })
+                    onClick = { currentDestination = destination }
+                )
             }
         }) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -103,13 +123,16 @@ fun SyezwAppScreen() {
                     viewModel = diaryViewModel,
                     modifier = screenModifier,
                     onNavigateToEditEntry = { entryId ->
-
                         if (entryId != null) {
                             diaryViewModel.getEntryById(entryId)
                         } else {
                             diaryViewModel.clearInputFields()
                         }
                     })
+
+                AppDestinations.PERIOD -> PeriodTrackingScreen(
+                    viewModel = periodViewModel, modifier = screenModifier
+                )
 
                 AppDestinations.SETTINGS -> SettingsScreen(
                     settingsViewModel = settingsViewModel, modifier = screenModifier

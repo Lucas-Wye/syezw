@@ -40,6 +40,7 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SuggestionChip // 1. 导入 SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -254,6 +255,9 @@ fun AddEditDiaryDialog(
 
     val scrollState = rememberScrollState()
 
+    // 2. 定义预设标签列表
+    val suggestedTags = listOf("爱情", "生活", "工作")
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (uiState.selectedEntry == null) "Add Diary" else "Edit Diary") },
@@ -310,6 +314,8 @@ fun AddEditDiaryDialog(
                 if (uiState.currentTags.isEmpty()) {
                     Text("Please add at least one tag.", color = MaterialTheme.colorScheme.error)
                 }
+
+                // 已添加的标签
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -327,6 +333,24 @@ fun AddEditDiaryDialog(
                             })
                     }
                 }
+
+                // 3. 添加建议标签的 UI
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    suggestedTags.forEach { tag ->
+                        // 如果该标签尚未被添加，则显示建议
+                        if (!uiState.currentTags.contains(tag)) {
+                            SuggestionChip(
+                                onClick = { viewModel.addTag(tag) },
+                                label = { Text(tag) }
+                            )
+                        }
+                    }
+                }
+
                 // Location
                 OutlinedTextField(
                     value = uiState.currentLocation ?: "",

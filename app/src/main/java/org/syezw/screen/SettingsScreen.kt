@@ -2,6 +2,7 @@ package org.syezw.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,6 +11,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -21,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch // 导入 coroutine launch
+import androidx.compose.runtime.rememberCoroutineScope // 导入 rememberCoroutineScope
 import org.syezw.model.SettingsViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -30,13 +34,19 @@ import java.util.Locale
 fun SettingsScreen(
     settingsViewModel: SettingsViewModel, modifier: Modifier = Modifier
 ) {
-    val currentAuthor by settingsViewModel.defaultAuthor.collectAsState()
-    val currentDateTogether by settingsViewModel.dateTogether.collectAsState()
+    // 1. 为 collectAsState 提供初始值
+    val currentAuthor by settingsViewModel.defaultAuthor.collectAsState(initial = "")
+    val currentDateTogether by settingsViewModel.dateTogether.collectAsState(initial = "")
+
+    // 从 ViewModel 获取周期记录功能的开启状态
+    // 注意：isPeriodTrackingEnabled 是一个 StateFlow，它总是有初始值，所以这里不需要提供 initial 参数
+    val isPeriodTrackingEnabled by settingsViewModel.isPeriodTrackingEnabled.collectAsState()
 
     var authorInput by remember(currentAuthor) { mutableStateOf(currentAuthor) }
     var dateTogetherInput by remember(currentDateTogether) { mutableStateOf(currentDateTogether) }
     var dateError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope() // 获取协程作用域
 
     Scaffold() { paddingValues ->
         Column(
@@ -60,10 +70,12 @@ fun SettingsScreen(
                     dateTogetherInput = it
                     // Basic validation on input change
                     dateError = try {
-                        SimpleDateFormat(it, Locale.getDefault()) // Test format
+                        // 修正：日期格式应该从 ViewModel 或一个统一的地方获取
+                        // 为了简单起见，这里我们先硬编码
+                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply { isLenient = false }.parse(it)
                         null // No error
-                    } catch (e: IllegalArgumentException) {
-                        "Invalid date pattern"
+                    } catch (e: Exception) {
+                        "无效的日期格式 (YYYY-MM-DD)"
                     }
                 },
                 label = { Text("Together Date") },
@@ -80,11 +92,41 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+
+            // 添加周期记录功能的开关
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Enable Period Tracking",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Switch(
+                    checked = isPeriodTrackingEnabled,
+                    onCheckedChange = { isEnabled ->
+                        // 当开关状态改变时，立刻更新 ViewModel
+                        // 2. 在协程中调用挂起函数
+                        coroutineScope.launch {
+                            settingsViewModel.setPeriodTrackingEnabled(isEnabled)
+                        }
+                    }
+                )
+            }
+
+
             Button(
                 onClick = {
                     if (dateError == null) { // Only save if format is valid
-                        settingsViewModel.updateDefaultAuthor(authorInput)
-                        settingsViewModel.updateDate(dateTogetherInput)
+                        // 3. 在协程中调用挂起函数
+                        coroutineScope.launch {
+                            settingsViewModel.updateDefaultAuthor(authorInput)
+                            settingsViewModel.updateDate(dateTogetherInput)
+                        }
+                        // 注意：开关状态已经实时保存，这里无需再次保存
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
