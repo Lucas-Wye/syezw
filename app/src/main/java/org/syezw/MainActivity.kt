@@ -48,6 +48,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Schedule periodic backup (every 30 days)
+        val backupRequest = androidx.work.PeriodicWorkRequestBuilder<org.syezw.worker.BackupWorker>(
+            30, java.util.concurrent.TimeUnit.DAYS
+        ).build()
+
+        androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "MonthlyBackup",
+            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            backupRequest
+        )
+
         setContent {
             SyezwTheme {
                 SyezwAppScreen()
@@ -60,6 +72,7 @@ class MainActivity : ComponentActivity() {
 fun SyezwAppScreen() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     val context = LocalContext.current
+    val application = context.applicationContext as Application
     val database = AppDatabase.getDatabase(context)
     val settingsManager = remember { SettingsManager(context.dataStore) }
 
@@ -74,7 +87,7 @@ fun SyezwAppScreen() {
         factory = OurLoveViewModelFactory(settingsManager)
     )
     val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(context.dataStore)
+        factory = SettingsViewModelFactory(application, database, context.dataStore)
     )
     val periodViewModel: PeriodViewModel = viewModel(
         factory = PeriodViewModelFactory(database.periodDao())

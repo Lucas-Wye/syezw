@@ -1,36 +1,44 @@
 package org.syezw.model
 
 import android.app.Application
+import android.net.Uri
+import android.widget.Toast
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
-import android.content.Context
-import androidx.compose.runtime.collectAsState
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import org.syezw.preference.SettingsManager
-import org.syezw.dataStore
+import kotlinx.coroutines.withContext
+import org.syezw.data.AppDatabase
+import org.syezw.data.Diary
+import org.syezw.data.PeriodDao
+import org.syezw.data.TodoTask
+import org.syezw.model.PeriodRecord
+import org.syezw.worker.BackupWorker
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
+class SettingsViewModel(
+    private val application: Application,
+    private val database: AppDatabase,
+    private val dataStore: DataStore<Preferences>
+) : AndroidViewModel(application) {
 
-val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-
-class SettingsViewModel(private val dataStore: DataStore<Preferences>) : ViewModel() {
+    private val gson = Gson()
 
     private object PreferencesKeys {
         val DEFAULT_AUTHOR = stringPreferencesKey("default_author")
         val DATE_TOGETHER = stringPreferencesKey("date_together")
-        // 1. 为周期记录功能创建一个新的 Preferences Key
         val PERIOD_TRACKING_ENABLED = booleanPreferencesKey("period_tracking_enabled")
         val PERIOD_DATA = stringPreferencesKey("period_data_json")
     }
@@ -92,14 +100,114 @@ class SettingsViewModel(private val dataStore: DataStore<Preferences>) : ViewMod
             }
         }
     }
+
+    fun exportData() {
+        val workRequest = OneTimeWorkRequestBuilder<BackupWorker>().build()
+        WorkManager.getInstance(application).enqueue(workRequest)
+        Toast.makeText(application, "正在后台导出数据...", Toast.LENGTH_SHORT).show()
+    }
+
+    fun importData(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val context = application.applicationContext
+                val tree = DocumentFile.fromTreeUri(context, uri)
+                if (tree == null || !tree.exists()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "无法访问选定的文件夹", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
+                val files = tree.listFiles()
+
+                // Helper to find latest file
+                fun findLatest(prefix: String): DocumentFile? {
+                    return files.filter { it.name?.startsWith(prefix) == true && it.name?.endsWith(".json") == true }
+                        .maxByOrNull { it.name ?: "" }
+                }
+
+                val diaryFile = findLatest("diary_backup")
+                val todoFile = findLatest("todo_backup")
+                val periodFile = findLatest("period_backup")
+
+                var importedCount = 0
+
+                // Import Diary
+                if (diaryFile != null) {
+                    val json = readJson(context, diaryFile.uri)
+                    if (json.isNotEmpty()) {
+                        val type = object : TypeToken<List<Diary>>() {}.type
+                        val diaries: List<Diary> = gson.fromJson(json, type)
+                        val existing = database.diaryDao().getAllEntriesList()
+                        for (item in diaries) {
+                            if (existing.none { it.content == item.content && it.timestamp == item.timestamp }) {
+                                database.diaryDao().insert(item.copy(id = 0))
+                                importedCount++
+                            }
+                        }
+                    }
+                }
+
+                // Import Todo
+                if (todoFile != null) {
+                    val json = readJson(context, todoFile.uri)
+                    if (json.isNotEmpty()) {
+                        val type = object : TypeToken<List<TodoTask>>() {}.type
+                        val todos: List<TodoTask> = gson.fromJson(json, type)
+                        val existing = database.todoTaskDao().getAllTasksList()
+                        for (item in todos) {
+                            if (existing.none { it.name == item.name && it.createdAt == item.createdAt }) {
+                                database.todoTaskDao().insert(item.copy(id = 0))
+                                importedCount++
+                            }
+                        }
+                    }
+                }
+
+                // Import Period
+                if (periodFile != null) {
+                    val json = readJson(context, periodFile.uri)
+                    if (json.isNotEmpty()) {
+                        val type = object : TypeToken<List<PeriodRecord>>() {}.type
+                        val periods: List<PeriodRecord> = gson.fromJson(json, type)
+                        // PeriodDao uses upsertAll which merges by PrimaryKey (startDate)
+                        database.periodDao().upsertAll(periods)
+                        importedCount += periods.size
+                    }
+                }
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "导入完成，共处理约 $importedCount 条新记录", Toast.LENGTH_LONG).show()
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "导入失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun readJson(context: Context, uri: Uri): String {
+        return context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            BufferedReader(InputStreamReader(inputStream)).use { reader ->
+                reader.readText()
+            }
+        } ?: ""
+    }
 }
 
-class SettingsViewModelFactory(private val dataStore: DataStore<Preferences>) :
-    ViewModelProvider.Factory {
+class SettingsViewModelFactory(
+    private val application: Application,
+    private val database: AppDatabase,
+    private val dataStore: DataStore<Preferences>
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return SettingsViewModel(dataStore) as T
+            return SettingsViewModel(application, database, dataStore) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

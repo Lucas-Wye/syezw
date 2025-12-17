@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import org.syezw.model.SettingsViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -47,6 +49,13 @@ fun SettingsScreen(
     var dateError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope() // 获取协程作用域
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+        onResult = { uri ->
+            uri?.let { settingsViewModel.importData(it) }
+        }
+    )
 
     Scaffold() { paddingValues ->
         Column(
@@ -117,6 +126,18 @@ fun SettingsScreen(
                 )
             }
 
+            // 导出/导入按钮
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Button(onClick = { settingsViewModel.exportData() }) {
+                    Text("导出数据")
+                }
+                Button(onClick = { importLauncher.launch(null) }) {
+                    Text("导入数据")
+                }
+            }
 
             Button(
                 onClick = {
