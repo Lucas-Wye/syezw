@@ -69,7 +69,6 @@ fun PeriodTrackingScreen(viewModel: PeriodViewModel, modifier: Modifier = Modifi
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(onClick = {
-                // --- 关键修复：为 showDatePicker 添加 onDismiss 参数 ---
                 showDatePicker(
                     context = context,
                     onDateSelected = { viewModel.addPeriodStartDate(it) },
@@ -153,8 +152,6 @@ fun PeriodTrackingScreen(viewModel: PeriodViewModel, modifier: Modifier = Modifi
     }
 }
 
-// StatisticsCard, PeriodRecordItem, NotesEditDialog, showDatePicker, OvulationInfo 的实现保持不变
-// ... (为了简洁，省略这些函数的完整代码，请保留您文件中的版本)
 @Composable
 fun StatisticsCard(avg3: Int, avg5: Int, sinceLast: Long?, lastDuration: Long?, ovulationPrediction: OvulationPrediction?, predictedNextPeriodDate: LocalDate?, lastPeriodDuration: Long?, avgPeriodDuration3: Int) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -215,7 +212,8 @@ private fun PeriodRecordItem(record: PeriodRecord, onEditEndDateClick: () -> Uni
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
-                "持续 ${record.realDuration} 天",
+                // TODO: 计算上次间隔 daysSinceLast
+                "持续 ${record.realDuration} 天，与上次间隔 ${record.daysSinceLast?.let { "$it 天" } ?: "N/A"}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
             )

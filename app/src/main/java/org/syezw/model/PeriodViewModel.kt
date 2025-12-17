@@ -73,7 +73,7 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
     private val _avgPeriodDurationLast3 = MutableStateFlow(0)
     val avgPeriodDurationLast3: StateFlow<Int> = _avgPeriodDurationLast3.asStateFlow()
 
-    private val defaultDurationDays: Long = 5
+    private val defaultDurationDays: Long = 7
 
     init {
         viewModelScope.launch {
@@ -130,8 +130,6 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
         }
     }
 
-    // --- 关键修改 #1：重新实现导入导出功能 ---
-
     fun exportData(context: Context, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -176,8 +174,6 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
             }
         }
     }
-
-    // --- 修改结束 ---
 
     private fun calculateStats(records: List<PeriodRecord>) {
         val ascendingRecords = records.sortedBy { it.startDate }

@@ -64,9 +64,6 @@ fun SyezwAppScreen() {
     val settingsManager = remember { SettingsManager(context.dataStore) }
 
     // --- ViewModel Instantiation ---
-    val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(context.dataStore)
-    )
     val todoViewModel: TodoViewModel = viewModel(
         factory = TodoViewModelFactory(database.todoTaskDao(), settingsManager)
     )
@@ -76,9 +73,11 @@ fun SyezwAppScreen() {
     val ourLoveViewModel: OurLoveViewModel = viewModel(
         factory = OurLoveViewModelFactory(settingsManager)
     )
-
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModelFactory(context.dataStore)
+    )
     val periodViewModel: PeriodViewModel = viewModel(
-        factory = PeriodViewModelFactory(database.periodDao()) // 之前是 settingsViewModel，现在是 database.periodDao()
+        factory = PeriodViewModelFactory(database.periodDao())
     )
 
     // 从 SettingsViewModel 监听周期记录的开关状态

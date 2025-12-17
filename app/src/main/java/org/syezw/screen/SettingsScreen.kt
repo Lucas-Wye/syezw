@@ -23,8 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch // 导入 coroutine launch
-import androidx.compose.runtime.rememberCoroutineScope // 导入 rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import org.syezw.model.SettingsViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -70,7 +70,7 @@ fun SettingsScreen(
                     dateTogetherInput = it
                     // Basic validation on input change
                     dateError = try {
-                        // 修正：日期格式应该从 ViewModel 或一个统一的地方获取
+                        // 日期格式应该从 ViewModel 或一个统一的地方获取
                         // 为了简单起见，这里我们先硬编码
                         SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply { isLenient = false }.parse(it)
                         null // No error

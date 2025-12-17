@@ -19,7 +19,6 @@ interface PeriodDao {
     @Query("SELECT * FROM period_records ORDER BY startDate DESC")
     fun getAllRecords(): Flow<List<PeriodRecord>>
 
-    // --- 关键修改：添加清空和批量插入的方法 ---
     @Query("DELETE FROM period_records")
     suspend fun clearAll()
 
@@ -32,5 +31,4 @@ interface PeriodDao {
         clearAll()
         upsertAll(records)
     }
-    // --- 修改结束 ---
 }
