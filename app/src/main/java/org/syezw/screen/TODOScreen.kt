@@ -112,6 +112,13 @@ fun TODOScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            item {
+                Text(
+                    text = "总共有 ${uiState.tasks.size} 个任务，记得做啊！",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             if (uiState.tasks.isEmpty()) {
                 item {
                     Text(

@@ -6,7 +6,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -57,7 +65,29 @@ fun SettingsScreen(
         }
     )
 
-    Scaffold() { paddingValues ->
+    Scaffold(
+        floatingActionButton = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = { importLauncher.launch(null) },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "恢复备份")
+                }
+                FloatingActionButton(
+                    onClick = { settingsViewModel.exportData() },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "导出备份")
+                }
+            }
+        }
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .padding(paddingValues)
@@ -124,19 +154,6 @@ fun SettingsScreen(
                         }
                     }
                 )
-            }
-
-            // 导出/导入按钮
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Button(onClick = { settingsViewModel.exportData() }) {
-                    Text("导出数据")
-                }
-                Button(onClick = { importLauncher.launch(null) }) {
-                    Text("导入数据")
-                }
             }
 
             Button(

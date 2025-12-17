@@ -68,6 +68,7 @@ fun PeriodTrackingScreen(viewModel: PeriodViewModel, modifier: Modifier = Modifi
 
     Scaffold(
         floatingActionButton = {
+            // 添加
             FloatingActionButton(onClick = {
                 showDatePicker(
                     context = context,
@@ -77,6 +78,32 @@ fun PeriodTrackingScreen(viewModel: PeriodViewModel, modifier: Modifier = Modifi
             }) {
                 Icon(Icons.Filled.Add, contentDescription = "添加新经期")
             }
+            // 导入按钮
+            FloatingActionButton(
+                onClick = {
+                    openDocumentLauncher.launch(arrayOf("application/json"))
+                },
+                modifier = Modifier.padding(end = 4.dp),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+            ) {
+                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Import Diaries")
+            }
+            // 导出按钮
+            FloatingActionButton(
+                onClick = {
+                    val timestamp =
+                        SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(
+                            java.util.Date()
+                        )
+                    createDocumentLauncher.launch("period_data_$timestamp.json")
+                },
+                modifier = Modifier.padding(end = 8.dp),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+            ) {
+                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Export Diaries")
+            }            
         }
     ) { paddingValues ->
         Column(
@@ -99,19 +126,6 @@ fun PeriodTrackingScreen(viewModel: PeriodViewModel, modifier: Modifier = Modifi
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Button(onClick = { openDocumentLauncher.launch("application/json") }) {
-                    Text("导入数据")
-                }
-                Button(onClick = { createDocumentLauncher.launch("period_data.json") }) {
-                    Text("导出数据")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
             Text("历史记录", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
 

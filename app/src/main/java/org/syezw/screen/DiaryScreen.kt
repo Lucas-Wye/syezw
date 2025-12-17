@@ -139,6 +139,13 @@ fun DiaryScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            item {
+                Text(
+                    text = "总共有 ${uiState.entries.size} 篇日记，记得写呢",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             if (uiState.entries.isEmpty()) {
                 item {
                     Text(
