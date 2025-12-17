@@ -147,7 +147,8 @@ fun PeriodTrackingScreen(viewModel: PeriodViewModel, modifier: Modifier = Modifi
                 viewModel.updatePeriodEndDate(record, newEndDate)
                 recordToEditEndDate = null
             },
-            onDismiss = { recordToEditEndDate = null }
+            onDismiss = { recordToEditEndDate = null },
+            initialDate = record.startDate
         )
     }
 }
@@ -212,7 +213,6 @@ private fun PeriodRecordItem(record: PeriodRecord, onEditEndDateClick: () -> Uni
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
-                // TODO: 计算上次间隔 daysSinceLast
                 "持续 ${record.realDuration} 天，与上次间隔 ${record.daysSinceLast?.let { "$it 天" } ?: "N/A"}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
@@ -253,8 +253,11 @@ fun NotesEditDialog(record: PeriodRecord, onDismiss: () -> Unit, onSave: (notes:
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )
 }
-private fun showDatePicker(context: Context, onDateSelected: (LocalDate) -> Unit, onDismiss: (() -> Unit)?) {
+private fun showDatePicker(context: Context, onDateSelected: (LocalDate) -> Unit, onDismiss: (() -> Unit)?, initialDate: LocalDate? = null) {
     val calendar = Calendar.getInstance()
+    if (initialDate != null) {
+        calendar.set(initialDate.year, initialDate.monthValue - 1, initialDate.dayOfMonth)
+    }
     val datePickerDialog = DatePickerDialog(
         context,
         { _, year, month, dayOfMonth -> onDateSelected(LocalDate.of(year, month + 1, dayOfMonth)) },

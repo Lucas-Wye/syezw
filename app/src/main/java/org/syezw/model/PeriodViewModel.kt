@@ -2,10 +2,12 @@ package org.syezw.model
 
 import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.room.Entity
+import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import com.google.gson.Gson
@@ -16,13 +18,16 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.syezw.data.Converters
 import org.syezw.data.PeriodDao
 import java.io.BufferedReader
+import java.io.FileOutputStream
 import java.io.InputStreamReader
+import java.lang.reflect.Type
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -36,6 +41,10 @@ data class PeriodRecord(
 ) {
     val realDuration: Long
         get() = ChronoUnit.DAYS.between(startDate, endDate) + 1
+
+    @Ignore
+    @kotlin.jvm.Transient // Gson 导出时将忽略该字段
+    var daysSinceLast: Long? = null
 }
 
 data class OvulationPrediction(
@@ -45,8 +54,21 @@ data class OvulationPrediction(
 )
 
 class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
-
+    private val gson = Gson()
     val periodRecords: StateFlow<List<PeriodRecord>> = periodDao.getAllRecords()
+        .map { records ->
+            // records are ordered by startDate DESC (newest first)
+            records.mapIndexed { index, record ->
+                if (index < records.size - 1) {
+                    val prev = records[index + 1]
+                    record.apply {
+                        daysSinceLast = ChronoUnit.DAYS.between(prev.startDate, startDate)
+                    }
+                } else {
+                    record
+                }
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _avgCycleLast3 = MutableStateFlow(0)
@@ -131,91 +153,113 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
     }
 
     fun exportData(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             try {
-                // 1. 从数据库获取当前所有记录
-                val recordsToExport = periodRecords.first() // .first() gets the current value from the Flow
-                // 2. 使用 Gson 将列表转换为 JSON 字符串
-                val gson = Gson()
+                val recordsToExport = periodRecords.first()
+
+                if (recordsToExport.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "没有记录可导出", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
                 val jsonString = gson.toJson(recordsToExport)
 
-                // 3. 将 JSON 字符串写入用户选择的文件
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    outputStream.write(jsonString.toByteArray())
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openFileDescriptor(uri, "w")?.use { pfd ->
+                        FileOutputStream(pfd.fileDescriptor).use { fos ->
+                            fos.write(jsonString.toByteArray())
+                        }
+                    }
                 }
-            } catch (_: Exception) {
-                // Handle exceptions, e.g., show a toast
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "导出成功!", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
 
     fun importData(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             try {
-                // 1. 从用户选择的文件中读取 JSON 字符串
-                val jsonString = context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                    BufferedReader(InputStreamReader(inputStream)).use { reader ->
-                        reader.readText()
+                val jsonString = StringBuilder()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        BufferedReader(InputStreamReader(inputStream)).use { reader ->
+                            var line: String?
+                            while (reader.readLine().also { line = it } != null) {
+                                jsonString.append(line)
+                            }
+                        }
                     }
-                } ?: return@launch
-
-                // 2. 使用 Gson 将 JSON 字符串解析回 PeriodRecord 列表
-                val gson = Gson()
-                val type = object : TypeToken<List<PeriodRecord>>() {}.type
-                val importedRecords: List<PeriodRecord> = gson.fromJson(jsonString, type)
-
-                // 3. 清空现有数据，并插入新数据
-                if (importedRecords.isNotEmpty()) {
-                    periodDao.clearAndInsert(importedRecords)
                 }
 
-            } catch (_: Exception) {
-                // Handle exceptions, e.g., show a toast for invalid file format
+                if (jsonString.isBlank()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "导入文件为空", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
+                val type: Type = object : TypeToken<List<PeriodRecord>>() {}.type
+                val importedRecords: List<PeriodRecord> = gson.fromJson(jsonString.toString(), type)
+
+                if (importedRecords.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "文件中未找到记录", Toast.LENGTH_SHORT).show()
+                    }
+                    return@launch
+                }
+
+                // Merge logic: upsertAll will update existing records with same startDate and insert new ones
+                periodDao.upsertAll(importedRecords)
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "成功导入 ${importedRecords.size} 条记录!", Toast.LENGTH_SHORT).show()
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "导入失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
 
     private fun calculateStats(records: List<PeriodRecord>) {
-        val ascendingRecords = records.sortedBy { it.startDate }
+        val latestRecord = records.firstOrNull()
 
-        _lastCycleDuration.value = if (ascendingRecords.size >= 2) {
-            ChronoUnit.DAYS.between(
-                ascendingRecords[ascendingRecords.size - 2].startDate,
-                ascendingRecords.last().startDate
-            )
-        } else {
-            null
-        }
-
-        val cycleLengths = if (ascendingRecords.size >= 2) {
-            ascendingRecords.zipWithNext { a, b ->
-                ChronoUnit.DAYS.between(a.startDate, b.startDate)
-            }
-        } else {
-            emptyList()
-        }
-        _avgCycleLast3.value = calculateAverageOfLongs(cycleLengths, 2)
-        _avgCycleLast5.value = calculateAverageOfLongs(cycleLengths, 4)
-
-        val durationLengths = ascendingRecords.map { it.realDuration }
-        _lastPeriodDuration.value = durationLengths.lastOrNull()
-        _avgPeriodDurationLast3.value = calculateAverageOfLongs(durationLengths, 3)
-
-        val latestRecord = ascendingRecords.lastOrNull()
         if (latestRecord != null) {
+            _lastCycleDuration.value = latestRecord.daysSinceLast
             _daysSinceLastPeriod.value =
                 ChronoUnit.DAYS.between(latestRecord.startDate, LocalDate.now())
+            _lastPeriodDuration.value = latestRecord.realDuration
             predictOvulation(latestRecord.startDate)
         } else {
+            _lastCycleDuration.value = null
             _daysSinceLastPeriod.value = null
+            _lastPeriodDuration.value = null
             _ovulationPrediction.value = null
             _predictedNextPeriodDate.value = null
-            _lastPeriodDuration.value = null
-            _avgPeriodDurationLast3.value = 0
-            _lastCycleDuration.value = null
             _avgCycleLast3.value = 0
             _avgCycleLast5.value = 0
+            _avgPeriodDurationLast3.value = 0
+            return
         }
+
+        val cycleLengths = records.mapNotNull { it.daysSinceLast }
+        _avgCycleLast3.value = calculateAverage(cycleLengths, 2)
+        _avgCycleLast5.value = calculateAverage(cycleLengths, 4)
+
+        val durationLengths = records.map { it.realDuration }
+        _avgPeriodDurationLast3.value = calculateAverage(durationLengths, 3)
     }
 
     private fun predictOvulation(lastPeriodDate: LocalDate) {
@@ -237,9 +281,9 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
         }
     }
 
-    private fun calculateAverageOfLongs(lengths: List<Long>, takeLast: Int): Int {
-        if (lengths.isEmpty() || takeLast <= 0) return 0
-        val sublist = if (lengths.size < takeLast) lengths else lengths.takeLast(takeLast)
+    private fun calculateAverage(values: List<Long>, count: Int): Int {
+        if (values.isEmpty() || count <= 0) return 0
+        val sublist = values.take(count)
         return sublist.average().toInt()
     }
 }

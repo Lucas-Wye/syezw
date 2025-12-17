@@ -56,7 +56,7 @@ class DiaryViewModel(
         viewModelScope.launch {
             try {
                 val diariesToExport =
-                    diaryDao.getAllEntriesList() // Need a non-Flow, one-shot list getter
+                    diaryDao.getAllEntriesList()
 
                 if (diariesToExport.isEmpty()) {
                     withContext(Dispatchers.Main) {

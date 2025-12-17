@@ -26,7 +26,7 @@ interface DiaryDao {
     fun getEntryById(id: Int): Flow<Diary?>
 
     @Query("SELECT * FROM diary_list ORDER BY timestamp DESC")
-    suspend fun getAllEntriesList(): List<Diary> // New: For export and merge check
+    suspend fun getAllEntriesList(): List<Diary>
 
     // Optional: For more efficient batch insert during import
     @Insert(onConflict = OnConflictStrategy.IGNORE) // IGNORE if you don't want to replace based on PrimaryKey
