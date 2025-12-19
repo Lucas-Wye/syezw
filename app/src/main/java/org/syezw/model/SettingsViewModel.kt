@@ -1,8 +1,14 @@
 package org.syezw.model
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -10,7 +16,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonPrimitive
+import com.google.gson.JsonSerializer
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -21,12 +30,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.syezw.data.AppDatabase
 import org.syezw.data.Diary
-import org.syezw.data.PeriodDao
 import org.syezw.data.TodoTask
-import org.syezw.model.PeriodRecord
 import org.syezw.worker.BackupWorker
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
 
 class SettingsViewModel(
     private val application: Application,
@@ -34,7 +44,15 @@ class SettingsViewModel(
     private val dataStore: DataStore<Preferences>
 ) : AndroidViewModel(application) {
 
-    private val gson = Gson()
+    private val gson = GsonBuilder().registerTypeAdapter(
+            LocalDate::class.java, JsonDeserializer { json, _, _ ->
+                LocalDate.parse(json.asString, DateTimeFormatter.ISO_LOCAL_DATE)
+            })
+        // 注册 Serializer 是一个好习惯，尽管此 ViewModel 主要用于反序列化
+        .registerTypeAdapter(
+            LocalDate::class.java, JsonSerializer<LocalDate> { src, _, _ ->
+                JsonPrimitive(src.format(DateTimeFormatter.ISO_LOCAL_DATE))
+            }).create()
 
     private object PreferencesKeys {
         val DEFAULT_AUTHOR = stringPreferencesKey("default_author")
@@ -51,17 +69,12 @@ class SettingsViewModel(
         preferences[PreferencesKeys.DATE_TOGETHER] ?: "2025-04-06"
     }
 
-    // 2. 创建一个 Flow 来读取周期记录的设置状态
-    // 它会从 DataStore 中读取布尔值，如果不存在，则默认为 false（关闭）
     val isPeriodTrackingEnabledStateFlow: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[PreferencesKeys.PERIOD_TRACKING_ENABLED] ?: false
     }
 
-    // 将 Flow 转换为 StateFlow 以便在 Composable 中更方便地使用
     val isPeriodTrackingEnabled = isPeriodTrackingEnabledStateFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false
+        scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = false
     )
     val periodData: Flow<String> = dataStore.data.map { preferences ->
         preferences[PreferencesKeys.PERIOD_DATA] ?: ""
@@ -83,8 +96,6 @@ class SettingsViewModel(
         }
     }
 
-    // 3. 创建一个函数来更新周期记录的设置状态
-    // 当用户在 SettingsScreen 中点击开关时，将调用此函数
     fun setPeriodTrackingEnabled(isEnabled: Boolean) {
         viewModelScope.launch {
             dataStore.edit { settings ->
@@ -109,8 +120,8 @@ class SettingsViewModel(
 
     fun importData(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
+            val context = application.applicationContext
             try {
-                val context = application.applicationContext
                 val tree = DocumentFile.fromTreeUri(context, uri)
                 if (tree == null || !tree.exists()) {
                     withContext(Dispatchers.Main) {
@@ -171,14 +182,15 @@ class SettingsViewModel(
                     if (json.isNotEmpty()) {
                         val type = object : TypeToken<List<PeriodRecord>>() {}.type
                         val periods: List<PeriodRecord> = gson.fromJson(json, type)
-                        // PeriodDao uses upsertAll which merges by PrimaryKey (startDate)
                         database.periodDao().upsertAll(periods)
                         importedCount += periods.size
                     }
                 }
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "导入完成，共处理约 $importedCount 条新记录", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        context, "导入完成，共处理 $importedCount 条记录", Toast.LENGTH_LONG
+                    ).show()
                 }
 
             } catch (e: Exception) {
@@ -206,8 +218,11 @@ class SettingsViewModelFactory(
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return SettingsViewModel(application, database, dataStore) as T
+            @Suppress("UNCHECKED_CAST") return SettingsViewModel(
+                application,
+                database,
+                dataStore
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -111,7 +111,9 @@ fun SettingsScreen(
                     dateError = try {
                         // 日期格式应该从 ViewModel 或一个统一的地方获取
                         // 为了简单起见，这里我们先硬编码
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply { isLenient = false }.parse(it)
+                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+                            isLenient = false
+                        }.parse(it)
                         null // No error
                     } catch (e: Exception) {
                         "无效的日期格式 (YYYY-MM-DD)"

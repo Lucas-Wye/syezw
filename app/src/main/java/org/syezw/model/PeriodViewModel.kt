@@ -11,7 +11,11 @@ import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.TypeAdapter
 import com.google.gson.reflect.TypeToken
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,10 +38,7 @@ import java.time.temporal.ChronoUnit
 @Entity(tableName = "period_records")
 @TypeConverters(Converters::class)
 data class PeriodRecord(
-    @PrimaryKey
-    val startDate: LocalDate,
-    val endDate: LocalDate,
-    val notes: String? = null
+    @PrimaryKey val startDate: LocalDate, val endDate: LocalDate, val notes: String? = null
 ) {
     val realDuration: Long
         get() = ChronoUnit.DAYS.between(startDate, endDate) + 1
@@ -48,15 +49,30 @@ data class PeriodRecord(
 }
 
 data class OvulationPrediction(
-    val startDate: LocalDate,
-    val endDate: LocalDate,
-    val peakDate: LocalDate
+    val startDate: LocalDate, val endDate: LocalDate, val peakDate: LocalDate
 )
 
 class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
-    private val gson = Gson()
-    val periodRecords: StateFlow<List<PeriodRecord>> = periodDao.getAllRecords()
-        .map { records ->
+    private val gson =
+        GsonBuilder().registerTypeAdapter(LocalDate::class.java, object : TypeAdapter<LocalDate>() {
+                override fun write(out: JsonWriter, value: LocalDate?) {
+                    if (value == null) {
+                        out.nullValue()
+                    } else {
+                        out.value(value.toString()) // 序列化为 "yyyy-MM-dd" 格式
+                    }
+                }
+
+                override fun read(input: JsonReader): LocalDate? {
+                    if (input.peek() == com.google.gson.stream.JsonToken.NULL) {
+                        input.nextNull()
+                        return null
+                    }
+                    return LocalDate.parse(input.nextString()) // 反序列化从 "yyyy-MM-dd" 格式
+                }
+            }).create()
+
+    val periodRecords: StateFlow<List<PeriodRecord>> = periodDao.getAllRecords().map { records ->
             // records are ordered by startDate DESC (newest first)
             records.mapIndexed { index, record ->
                 if (index < records.size - 1) {
@@ -68,8 +84,7 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
                     record
                 }
             }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _avgCycleLast3 = MutableStateFlow(0)
     val avgCycleLast3: StateFlow<Int> = _avgCycleLast3.asStateFlow()
@@ -109,17 +124,17 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
         viewModelScope.launch {
             val defaultEndDate = date.plusDays(defaultDurationDays - 1)
             if (periodRecords.value.any {
-                    (date.isAfter(it.startDate) && date.isBefore(it.endDate)) ||
-                            (defaultEndDate.isAfter(it.startDate) && defaultEndDate.isBefore(it.endDate)) ||
-                            (date.isBefore(it.startDate) && defaultEndDate.isAfter(it.endDate))
+                    (date.isAfter(it.startDate) && date.isBefore(it.endDate)) || (defaultEndDate.isAfter(
+                        it.startDate
+                    ) && defaultEndDate.isBefore(it.endDate)) || (date.isBefore(it.startDate) && defaultEndDate.isAfter(
+                        it.endDate
+                    ))
                 }) {
                 return@launch
             }
             periodDao.upsert(
                 PeriodRecord(
-                    startDate = date,
-                    endDate = defaultEndDate,
-                    notes = notes
+                    startDate = date, endDate = defaultEndDate, notes = notes
                 )
             )
         }
@@ -129,8 +144,7 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
         viewModelScope.launch {
             if (newEndDate.isBefore(record.startDate)) return@launch
 
-            val nextRecord = periodRecords.value
-                .filter { it.startDate.isAfter(record.startDate) }
+            val nextRecord = periodRecords.value.filter { it.startDate.isAfter(record.startDate) }
                 .minByOrNull { it.startDate }
 
             if (nextRecord != null && newEndDate.isAfter(nextRecord.startDate.minusDays(1))) {
@@ -155,8 +169,7 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
     fun exportData(context: Context, uri: Uri) {
         viewModelScope.launch {
             try {
-                val recordsToExport = periodRecords.first()
-
+                val recordsToExport = periodDao.getAllRecords().first()
                 if (recordsToExport.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "没有记录可导出", Toast.LENGTH_SHORT).show()
@@ -221,7 +234,9 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
                 periodDao.upsertAll(importedRecords)
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "成功导入 ${importedRecords.size} 条记录!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context, "成功导入 ${importedRecords.size} 条记录!", Toast.LENGTH_SHORT
+                    ).show()
                 }
 
             } catch (e: Exception) {
@@ -291,8 +306,7 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
 class PeriodViewModelFactory(private val periodDao: PeriodDao) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PeriodViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return PeriodViewModel(periodDao) as T
+            @Suppress("UNCHECKED_CAST") return PeriodViewModel(periodDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class for Period")
     }
