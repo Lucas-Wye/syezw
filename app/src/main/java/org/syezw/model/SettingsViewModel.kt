@@ -45,9 +45,9 @@ class SettingsViewModel(
 ) : AndroidViewModel(application) {
 
     private val gson = GsonBuilder().registerTypeAdapter(
-            LocalDate::class.java, JsonDeserializer { json, _, _ ->
-                LocalDate.parse(json.asString, DateTimeFormatter.ISO_LOCAL_DATE)
-            })
+        LocalDate::class.java, JsonDeserializer { json, _, _ ->
+            LocalDate.parse(json.asString, DateTimeFormatter.ISO_LOCAL_DATE)
+        })
         // 注册 Serializer 是一个好习惯，尽管此 ViewModel 主要用于反序列化
         .registerTypeAdapter(
             LocalDate::class.java, JsonSerializer<LocalDate> { src, _, _ ->
@@ -59,6 +59,8 @@ class SettingsViewModel(
         val DATE_TOGETHER = stringPreferencesKey("date_together")
         val PERIOD_TRACKING_ENABLED = booleanPreferencesKey("period_tracking_enabled")
         val PERIOD_DATA = stringPreferencesKey("period_data_json")
+        val LOVE_BG_IMAGE_URI = stringPreferencesKey("love_bg_image_uri")
+        val LOVE_BG_ENABLED = booleanPreferencesKey("love_bg_enabled")
     }
 
     val defaultAuthor: Flow<String> = dataStore.data.map { preferences ->
@@ -101,6 +103,30 @@ class SettingsViewModel(
             dataStore.edit { settings ->
                 settings[PreferencesKeys.PERIOD_TRACKING_ENABLED] = isEnabled
             }
+        }
+    }
+
+    val loveBgImageUri: Flow<String?> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.LOVE_BG_IMAGE_URI]
+    }
+
+    val loveBgEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.LOVE_BG_ENABLED] ?: false
+    }
+
+    suspend fun setLoveBgImageUri(uri: String?) {
+        dataStore.edit { settings ->
+            if (uri != null) {
+                settings[PreferencesKeys.LOVE_BG_IMAGE_URI] = uri
+            } else {
+                settings.remove(PreferencesKeys.LOVE_BG_IMAGE_URI)
+            }
+        }
+    }
+
+    suspend fun setLoveBgEnabled(enabled: Boolean) {
+        dataStore.edit { settings ->
+            settings[PreferencesKeys.LOVE_BG_ENABLED] = enabled
         }
     }
 

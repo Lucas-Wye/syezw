@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -17,6 +18,7 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -47,6 +49,8 @@ fun SettingsScreen(
     // 1. 为 collectAsState 提供初始值
     val currentAuthor by settingsViewModel.defaultAuthor.collectAsState(initial = "")
     val currentDateTogether by settingsViewModel.dateTogether.collectAsState(initial = "")
+    val loveBgImageUri by settingsViewModel.loveBgImageUri.collectAsState(initial = null)
+    val loveBgEnabled by settingsViewModel.loveBgEnabled.collectAsState(initial = false)
 
     // 从 ViewModel 获取周期记录功能的开启状态
     // 注意：isPeriodTrackingEnabled 是一个 StateFlow，它总是有初始值，所以这里不需要提供 initial 参数
@@ -62,6 +66,22 @@ fun SettingsScreen(
         contract = ActivityResultContracts.OpenDocumentTree(),
         onResult = { uri ->
             uri?.let { settingsViewModel.importData(it) }
+        }
+    )
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            uri?.let {
+                // 获取持久化权限
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                coroutineScope.launch {
+                    settingsViewModel.setLoveBgImageUri(it.toString())
+                }
+            }
         }
     )
 
@@ -156,6 +176,56 @@ fun SettingsScreen(
                         }
                     }
                 )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 添加Love背景图片功能
+            Text(
+                text = "Love Screen Background",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Enable Background Image",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Switch(
+                    checked = loveBgEnabled,
+                    onCheckedChange = { isEnabled ->
+                        coroutineScope.launch {
+                            settingsViewModel.setLoveBgEnabled(isEnabled)
+                        }
+                    }
+                )
+            }
+
+            OutlinedButton(
+                onClick = { imagePickerLauncher.launch("image/*") },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (loveBgImageUri != null) "更改背景图片" else "选择背景图片")
+            }
+
+            if (loveBgImageUri != null) {
+                OutlinedButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            settingsViewModel.setLoveBgImageUri(null)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("移除背景图片")
+                }
             }
 
             Button(

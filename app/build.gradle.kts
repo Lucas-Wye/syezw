@@ -88,6 +88,9 @@ dependencies {
     implementation("androidx.room:room-paging:$room_version")
 
     implementation(libs.gson)
+    
+    // Coil for image loading
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

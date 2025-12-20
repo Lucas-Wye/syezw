@@ -55,36 +55,36 @@ data class OvulationPrediction(
 class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
     private val gson =
         GsonBuilder().registerTypeAdapter(LocalDate::class.java, object : TypeAdapter<LocalDate>() {
-                override fun write(out: JsonWriter, value: LocalDate?) {
-                    if (value == null) {
-                        out.nullValue()
-                    } else {
-                        out.value(value.toString()) // 序列化为 "yyyy-MM-dd" 格式
-                    }
-                }
-
-                override fun read(input: JsonReader): LocalDate? {
-                    if (input.peek() == com.google.gson.stream.JsonToken.NULL) {
-                        input.nextNull()
-                        return null
-                    }
-                    return LocalDate.parse(input.nextString()) // 反序列化从 "yyyy-MM-dd" 格式
-                }
-            }).create()
-
-    val periodRecords: StateFlow<List<PeriodRecord>> = periodDao.getAllRecords().map { records ->
-            // records are ordered by startDate DESC (newest first)
-            records.mapIndexed { index, record ->
-                if (index < records.size - 1) {
-                    val prev = records[index + 1]
-                    record.apply {
-                        daysSinceLast = ChronoUnit.DAYS.between(prev.startDate, startDate)
-                    }
+            override fun write(out: JsonWriter, value: LocalDate?) {
+                if (value == null) {
+                    out.nullValue()
                 } else {
-                    record
+                    out.value(value.toString()) // 序列化为 "yyyy-MM-dd" 格式
                 }
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+            override fun read(input: JsonReader): LocalDate? {
+                if (input.peek() == com.google.gson.stream.JsonToken.NULL) {
+                    input.nextNull()
+                    return null
+                }
+                return LocalDate.parse(input.nextString()) // 反序列化从 "yyyy-MM-dd" 格式
+            }
+        }).create()
+
+    val periodRecords: StateFlow<List<PeriodRecord>> = periodDao.getAllRecords().map { records ->
+        // records are ordered by startDate DESC (newest first)
+        records.mapIndexed { index, record ->
+            if (index < records.size - 1) {
+                val prev = records[index + 1]
+                record.apply {
+                    daysSinceLast = ChronoUnit.DAYS.between(prev.startDate, startDate)
+                }
+            } else {
+                record
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _avgCycleLast3 = MutableStateFlow(0)
     val avgCycleLast3: StateFlow<Int> = _avgCycleLast3.asStateFlow()
@@ -256,7 +256,6 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
             _daysSinceLastPeriod.value =
                 ChronoUnit.DAYS.between(latestRecord.startDate, LocalDate.now())
             _lastPeriodDuration.value = latestRecord.realDuration
-            predictOvulation(latestRecord.startDate)
         } else {
             _lastCycleDuration.value = null
             _daysSinceLastPeriod.value = null
@@ -275,6 +274,9 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
 
         val durationLengths = records.map { it.realDuration }
         _avgPeriodDurationLast3.value = calculateAverage(durationLengths, 3)
+
+        // 在计算完平均值后再预测排卵
+        predictOvulation(latestRecord.startDate)
     }
 
     private fun predictOvulation(lastPeriodDate: LocalDate) {
