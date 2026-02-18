@@ -1,0 +1,51 @@
+# Debug
+```
+$env:http_proxy = "http://127.0.0.1:7897"
+$env:https_proxy = "http://127.0.0.1:7897"
+$env:JAVA_TOOL_OPTIONS='-DproxySet=true -DproxyHost=127.0.0.1 -DproxyPort=7897'
+
+.\gradlew test
+.\gradlew compileDebugSources
+.\gradlew assembleDebug
+```
+
+# Release
+```
+keytool -genkeypair `
+    -alias syezw_release `
+    -keyalg RSA `
+    -keysize 2048 `
+    -validity 10000 `
+    -keystore ./app/release.keystore
+```
+
+```
+$env:RELEASE_STORE_FILE="release.keystore"
+$env:RELEASE_STORE_PASSWORD="syezw2025"
+$env:RELEASE_KEY_ALIAS="syezw_release"
+$env:RELEASE_KEY_PASSWORD="syezw2025"
+```
+.\gradlew compileReleaseSources
+.\gradlew assembleRelease
+```
+
+# Android SDK Download
+```
+sdkmanager.bat --list --sdk_root=D:\software\bin\android\sdk > 1.log
+sdkmanager --sdk_root=D:\software\bin\android\sdk "platforms;android-30" "build-tools;30.0.0"
+```
+
+# DB
+```
+SELECT * FROM diary_image_refs;
+SELECT * FROM diary_images;
+SELECT * FROM diary_sync;
+SELECT * FROM period_sync;
+SELECT * FROM todo_sync;
+
+DELETE FROM diary_image_refs;
+DELETE FROM diary_images;
+DELETE FROM diary_sync;
+DELETE FROM period_sync;
+DELETE FROM todo_sync;
+```

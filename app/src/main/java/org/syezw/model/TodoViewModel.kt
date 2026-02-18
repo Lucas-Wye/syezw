@@ -36,6 +36,15 @@ data class TodoUiState(
     val searchQuery: String = "" // 搜索查询文本
 )
 
+internal fun sortTodoTasks(tasks: List<TodoTask>): List<TodoTask> {
+    return tasks.sortedWith(
+        compareBy<TodoTask> { it.isCompleted }
+            .thenByDescending { task ->
+                if (task.isCompleted) task.completedAt ?: Long.MIN_VALUE else task.createdAt
+            }
+    )
+}
+
 class TodoViewModel(
     private val todoTaskDao: TodoTaskDao, private val settingsManager: SettingsManager
 ) : ViewModel() {
@@ -54,12 +63,7 @@ class TodoViewModel(
     private fun loadAllTasks() {
         viewModelScope.launch {
             todoTaskDao.getAll().collect { tasks -> // Using getAll() from your Dao
-                val sortedTasks = tasks.sortedWith(
-                    // 首先比较 isCompleted 状态，false (未完成) 会排在 true (已完成) 前面
-                    compareBy<TodoTask> { it.isCompleted }
-                        // 然后在每个状态分组内部，按创建时间降序排列 (最新的在最前)
-                        .thenByDescending { it.createdAt }
-                )
+                val sortedTasks = sortTodoTasks(tasks)
                 
                 _uiState.update { currentState ->
                     val filteredTasks = applySearch(sortedTasks, currentState.searchQuery)
@@ -230,7 +234,8 @@ class TodoViewModel(
                 author = authorToUse,
                 createdAt = System.currentTimeMillis(),
                 isCompleted = false,
-                completedAt = null
+                completedAt = null,
+                updatedAt = System.currentTimeMillis()
             )
             todoTaskDao.insert(newTask)
             clearInputFields()
@@ -244,7 +249,8 @@ class TodoViewModel(
             val taskToUpdate = task.copy(
                 completedAt = if (task.isCompleted && task.completedAt == null) System.currentTimeMillis()
                 else if (!task.isCompleted) null
-                else task.completedAt
+                else task.completedAt,
+                updatedAt = System.currentTimeMillis()
             )
             todoTaskDao.update(taskToUpdate)
             clearInputFields()
@@ -255,7 +261,8 @@ class TodoViewModel(
         viewModelScope.launch {
             val updatedTask = task.copy(
                 isCompleted = !task.isCompleted,
-                completedAt = if (!task.isCompleted) System.currentTimeMillis() else null
+                completedAt = if (!task.isCompleted) System.currentTimeMillis() else null,
+                updatedAt = System.currentTimeMillis()
             )
             todoTaskDao.update(updatedTask)
             // No need to clear input fields here typically, as it's a direct list item interaction

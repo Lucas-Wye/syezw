@@ -133,6 +133,7 @@ fun SyezwAppScreen() {
 
                 AppDestinations.DIARY -> DiaryScreen(
                     viewModel = diaryViewModel,
+                    settingsViewModel = settingsViewModel,
                     modifier = screenModifier,
                     onNavigateToEditEntry = { entryId ->
                         if (entryId != null) {

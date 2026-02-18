@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -58,16 +60,21 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import org.syezw.data.Diary
 import org.syezw.model.DiaryViewModel
+import org.syezw.model.SettingsViewModel
 import org.syezw.ui.theme.diaryBackgroundColors
+import org.syezw.util.resolveDiaryImageFile
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -77,6 +84,7 @@ import java.util.Locale
 @Composable
 fun DiaryScreen(
     viewModel: DiaryViewModel,
+    settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
     onNavigateToEditEntry: (Int?) -> Unit // Pass null for new entry, id for existing
 ) {
@@ -84,6 +92,7 @@ fun DiaryScreen(
     var expandFilterSection by remember { mutableStateOf(false) }
 
     var showAddEditDialog by remember { mutableStateOf(false) }
+    var detailEntry by remember { mutableStateOf<Diary?>(null) }
     val context = LocalContext.current
     val exportDiaryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"), onResult = { uri ->
@@ -350,7 +359,9 @@ fun DiaryScreen(
                 DiaryEntryItem(entry = entry, backgroundColor = backgroundColor, onEditClick = {
                     viewModel.getEntryById(entry.id)
                     showAddEditDialog = true
-                }, onDeleteClick = { viewModel.deleteEntry(entry) })
+                }, onDeleteClick = { viewModel.deleteEntry(entry) }, onViewClick = {
+                    detailEntry = entry
+                })
             }
         }
 
@@ -359,19 +370,32 @@ fun DiaryScreen(
             AddEditDiaryDialog(
                 viewModel = viewModel, onDismiss = { showAddEditDialog = false })
         }
+        detailEntry?.let { entry ->
+            DiaryDetailDialog(
+                entry = entry,
+                settingsViewModel = settingsViewModel,
+                onDismiss = { detailEntry = null }
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DiaryEntryItem(
-    entry: Diary, backgroundColor: Color, onEditClick: () -> Unit, onDeleteClick: () -> Unit
+    entry: Diary,
+    backgroundColor: Color,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onViewClick: () -> Unit
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        onClick = onViewClick
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(entry.content, style = MaterialTheme.typography.bodyLarge)
@@ -390,6 +414,25 @@ fun DiaryEntryItem(
             }
             entry.location?.let {
                 Text("地点: $it", style = MaterialTheme.typography.bodySmall)
+            }
+            if (entry.imageUris.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    entry.imageUris.forEach { path ->
+                        AsyncImage(
+                            model = resolveDiaryImageFile(path),
+                            contentDescription = "Diary thumbnail",
+                            modifier = Modifier
+                                .size(56.dp)
+                                .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End
@@ -427,7 +470,7 @@ fun DiaryEntryItem(
 }
 
 @SuppressLint("DefaultLocale")
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddEditDiaryDialog(
     viewModel: DiaryViewModel, onDismiss: () -> Unit
@@ -437,6 +480,15 @@ fun AddEditDiaryDialog(
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+        onResult = { uris ->
+            if (uris.isNotEmpty()) {
+                viewModel.addImagesFromUris(context, uris)
+            }
+        }
+    )
 
     val datePickerState =
         rememberDatePickerState(initialSelectedDateMillis = uiState.currentTimestamp)
@@ -547,6 +599,56 @@ fun AddEditDiaryDialog(
                     }
                 }
 
+                // Images
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Images", style = MaterialTheme.typography.labelMedium)
+                    TextButton(onClick = {
+                        imagePickerLauncher.launch(arrayOf("image/*"))
+                    }) {
+                        Text("Add Images")
+                    }
+                }
+                if (uiState.currentImagePaths.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        uiState.currentImagePaths.forEach { path ->
+                            Box {
+                                AsyncImage(
+                                    model = resolveDiaryImageFile(path),
+                                    contentDescription = "Selected image",
+                                    modifier = Modifier
+                                        .size(72.dp)
+                                        .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.outline,
+                                            MaterialTheme.shapes.small
+                                        ),
+                                    contentScale = ContentScale.Crop
+                                )
+                                IconButton(
+                                    onClick = { viewModel.removeImagePath(path) },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(28.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Clear,
+                                        contentDescription = "Remove image",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Location
                 OutlinedTextField(
                     value = uiState.currentLocation ?: "",
@@ -640,5 +742,71 @@ fun TimePickerDialog(
         text = content,
         confirmButton = confirmButton,
         dismissButton = dismissButton
+    )
+}
+
+@Composable
+fun DiaryDetailDialog(entry: Diary, settingsViewModel: SettingsViewModel, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Diary") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(entry.content, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "${
+                        SimpleDateFormat(
+                            "yyyy-MM-dd HH:mm", Locale.getDefault()
+                        ).format(java.util.Date(entry.timestamp))
+                    } | ${entry.author}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (entry.tags.isNotEmpty()) {
+                    Text(
+                        "#${entry.tags.joinToString(" #")}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                entry.location?.let {
+                    Text("地点: $it", style = MaterialTheme.typography.bodySmall)
+                }
+                if (entry.imageUris.isNotEmpty()) {
+                    entry.imageUris.forEach { path ->
+                        val normalizedName = org.syezw.util.normalizeDiaryImageName(path)
+                        val localFile = resolveDiaryImageFile(path)
+                        val targetFile =
+                            if (localFile.exists()) localFile else resolveDiaryImageFile(normalizedName)
+                        if (!targetFile.exists()) {
+                            LaunchedEffect(normalizedName) {
+                                settingsViewModel.fetchImageFromRemote(entry.uuid, normalizedName)
+                            }
+                        }
+                        AsyncImage(
+                            model = targetFile,
+                            contentDescription = "Diary image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 160.dp, max = 360.dp)
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outline,
+                                    MaterialTheme.shapes.small
+                                ),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
     )
 }

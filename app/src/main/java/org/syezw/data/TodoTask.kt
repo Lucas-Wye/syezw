@@ -7,9 +7,11 @@ import androidx.room.PrimaryKey
 data class TodoTask(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
+    val uuid: String = java.util.UUID.randomUUID().toString(),
     val name: String,
     val author: String = "SYEZW",
     var isCompleted: Boolean = false,
     val createdAt: Long,
-    val completedAt: Long?
+    val completedAt: Long?,
+    val updatedAt: Long = System.currentTimeMillis()
 )

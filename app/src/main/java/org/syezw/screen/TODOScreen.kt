@@ -44,8 +44,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
+import org.syezw.R
 import org.syezw.data.TodoTask
 import org.syezw.model.TodoViewModel
 import java.text.SimpleDateFormat
@@ -172,7 +176,7 @@ fun TODOScreen(
         }
 
         if (showAddEditDialog) {
-            AddEditTodoDialog( // Renamed to AddEditTodoDialog
+            AddEditTodoDialog(
                 viewModel = viewModel, onDismiss = {
                     showAddEditDialog = false
                     // viewModel.clearInputFields() // Clearing when dialog opens is often better
@@ -186,6 +190,8 @@ fun TodoTaskItem(
     task: TodoTask, onEditClick: () -> Unit, onDeleteClick: () -> Unit, onToggleComplete: () -> Unit
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -222,11 +228,17 @@ fun TodoTaskItem(
                     )
                 }
             }
+            IconButton(onClick = {
+                clipboardManager.setText(AnnotatedString(buildTodoClipboardText(task)))
+                Toast.makeText(context, "任务已复制到剪贴板", Toast.LENGTH_SHORT).show()
+            }) {
+                Icon(painterResource(R.drawable.ic_content_copy), contentDescription = "Copy")
+            }
             IconButton(onClick = onEditClick) {
-                Icon(Icons.Filled.Edit, contentDescription = "Edit Task")
+                Icon(Icons.Filled.Edit, contentDescription = "Edit")
             }
             IconButton(onClick = { showDeleteConfirmDialog = true }) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete Task")
+                Icon(Icons.Filled.Delete, contentDescription = "Delete")
             }
         }
     }
@@ -306,4 +318,8 @@ fun AddEditTodoDialog( // Updated for new fields
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         })
+}
+
+internal fun buildTodoClipboardText(task: TodoTask): String {
+    return "${task.name}"
 }

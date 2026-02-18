@@ -1,8 +1,12 @@
 package org.syezw.model
 
 
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
+import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -20,10 +24,18 @@ import kotlinx.coroutines.withContext
 import org.syezw.data.Diary
 import org.syezw.data.DiaryDao
 import org.syezw.preference.SettingsManager
+import org.syezw.util.DIARY_IMAGES_FOLDER
+import org.syezw.util.normalizeDiaryImageName
+import org.syezw.util.resolveDiaryImagePath
 import java.io.BufferedReader
+import java.io.File
+import java.io.InputStream
 import java.io.FileOutputStream
+import java.io.FileInputStream
 import java.io.InputStreamReader
 import java.lang.reflect.Type
+import java.security.MessageDigest
+import java.util.UUID
 
 data class DiaryUiState(
     val entries: List<Diary> = emptyList(),
@@ -34,6 +46,7 @@ data class DiaryUiState(
     val currentTags: List<String> = emptyList(),
     val currentTimestamp: Long = System.currentTimeMillis(),
     val currentLocation: String? = null,
+    val currentImagePaths: List<String> = emptyList(),
     // 筛选相关状态
     val allEntries: List<Diary> = emptyList(), // 未筛选的日记
     val selectedFilterTag: String? = null, // 当前选中的标签筛选
@@ -50,6 +63,7 @@ class DiaryViewModel(
     private val _uiState = MutableStateFlow(DiaryUiState())
     val uiState: StateFlow<DiaryUiState> = _uiState.asStateFlow()
     private val gson = Gson()
+    private val imageHashCacheFileName = "diary_image_hashes.json"
 
     init {
         loadAllEntries()
@@ -318,7 +332,9 @@ class DiaryViewModel(
                         currentContent = entry?.content ?: "",
                         currentTags = entry?.tags ?: emptyList(),
                         currentTimestamp = entry?.timestamp ?: System.currentTimeMillis(),
-                        currentLocation = entry?.location
+                        currentLocation = entry?.location,
+                        currentImagePaths = entry?.imageUris?.map(::normalizeDiaryImageName)
+                            ?: emptyList()
                     )
                 }
             }
@@ -347,6 +363,34 @@ class DiaryViewModel(
         _uiState.update { it.copy(currentLocation = location) }
     }
 
+    fun addImagesFromUris(context: Context, uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val hashCache = loadImageHashCache(context).toMutableMap()
+            val savedNames = uris.mapNotNull { uri ->
+                val hash = computeHashForUri(context, uri) ?: return@mapNotNull null
+                val cachedPath = hashCache[hash]
+                if (cachedPath != null && File(resolveDiaryImagePath(cachedPath)).exists()) {
+                    normalizeDiaryImageName(cachedPath)
+                } else {
+                    val newName = saveImageToDownloads(context, uri)
+                    if (newName != null) {
+                        hashCache[hash] = newName
+                    }
+                    newName
+                }
+            }
+            saveImageHashCache(context, hashCache)
+            if (savedNames.isNotEmpty()) {
+                _uiState.update { it.copy(currentImagePaths = it.currentImagePaths + savedNames) }
+            }
+        }
+    }
+
+    fun removeImagePath(path: String) {
+        _uiState.update { it.copy(currentImagePaths = it.currentImagePaths - path) }
+    }
+
     fun saveDiaryEntry() {
         viewModelScope.launch {
             val currentState = _uiState.value
@@ -366,13 +410,17 @@ class DiaryViewModel(
                 author = authorToUse,
                 tags = currentState.currentTags,
                 timestamp = currentState.currentTimestamp,
-                location = currentState.currentLocation
+                location = currentState.currentLocation,
+                imageUris = currentState.currentImagePaths.map(::normalizeDiaryImageName),
+                updatedAt = System.currentTimeMillis()
             ) ?: Diary(
                 content = currentState.currentContent,
                 author = authorToUse,
                 tags = currentState.currentTags,
                 timestamp = currentState.currentTimestamp,
-                location = currentState.currentLocation
+                location = currentState.currentLocation,
+                imageUris = currentState.currentImagePaths.map(::normalizeDiaryImageName),
+                updatedAt = System.currentTimeMillis()
             )
 
             if (entryToSave.id == 0) { // New entry
@@ -402,9 +450,120 @@ class DiaryViewModel(
                     currentAuthor = currentDefaultAuthor, // Use the fetched author
                     currentTags = emptyList(),
                     currentTimestamp = System.currentTimeMillis(),
-                    currentLocation = null
+                    currentLocation = null,
+                    currentImagePaths = emptyList()
                 )
             }
+        }
+    }
+
+    private fun saveImageToDownloads(context: Context, sourceUri: Uri): String? {
+        return try {
+            val resolver = context.contentResolver
+            val mimeType = resolver.getType(sourceUri) ?: "image/jpeg"
+            val extension =
+                MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType) ?: "jpg"
+            val fileName = "diary_${System.currentTimeMillis()}_${UUID.randomUUID()}.$extension"
+
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                put(
+                    MediaStore.Downloads.RELATIVE_PATH,
+                    "${Environment.DIRECTORY_DOWNLOADS}/$DIARY_IMAGES_FOLDER"
+                )
+            }
+
+            val targetUri =
+                resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return null
+
+            resolver.openInputStream(sourceUri)?.use { input ->
+                resolver.openOutputStream(targetUri)?.use { output ->
+                    input.copyTo(output)
+                }
+            }
+
+            fileName
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun computeHashForUri(context: Context, uri: Uri): String? {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                computeSha256(input)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun computeSha256(input: InputStream): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(8 * 1024)
+        var read = input.read(buffer)
+        while (read > 0) {
+            digest.update(buffer, 0, read)
+            read = input.read(buffer)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun loadImageHashCache(context: Context): Map<String, String> {
+        return try {
+            val file = File(context.filesDir, imageHashCacheFileName)
+            if (!file.exists()) {
+                val rebuilt = rebuildImageHashCache()
+                if (rebuilt.isNotEmpty()) {
+                    saveImageHashCache(context, rebuilt)
+                }
+                rebuilt
+            } else {
+                val json = file.readText()
+                val type: Type = object : TypeToken<Map<String, String>>() {}.type
+                val raw = gson.fromJson<Map<String, String>>(json, type) ?: emptyMap()
+                raw.mapValues { (_, value) -> normalizeDiaryImageName(value) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyMap()
+        }
+    }
+
+    private fun rebuildImageHashCache(): Map<String, String> {
+        return try {
+            val downloadDir =
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val diaryDir = File(downloadDir, DIARY_IMAGES_FOLDER)
+            if (!diaryDir.exists() || !diaryDir.isDirectory) {
+                emptyMap()
+            } else {
+                val result = mutableMapOf<String, String>()
+                diaryDir.listFiles()
+                    ?.filter { it.isFile }
+                    ?.forEach { file ->
+                        FileInputStream(file).use { input ->
+                            val hash = computeSha256(input)
+                            result[hash] = file.name
+                        }
+                    }
+                result
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyMap()
+        }
+    }
+
+    private fun saveImageHashCache(context: Context, cache: Map<String, String>) {
+        try {
+            val file = File(context.filesDir, imageHashCacheFileName)
+            file.writeText(gson.toJson(cache))
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }

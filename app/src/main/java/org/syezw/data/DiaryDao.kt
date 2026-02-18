@@ -28,6 +28,9 @@ interface DiaryDao {
     @Query("SELECT * FROM diary_list ORDER BY timestamp DESC")
     suspend fun getAllEntriesList(): List<Diary>
 
+    @Query("SELECT * FROM diary_list WHERE uuid = :uuid LIMIT 1")
+    suspend fun getByUuid(uuid: String): Diary?
+
     // Optional: For more efficient batch insert during import
     @Insert(onConflict = OnConflictStrategy.IGNORE) // IGNORE if you don't want to replace based on PrimaryKey
     suspend fun insertAll(diaries: List<Diary>)

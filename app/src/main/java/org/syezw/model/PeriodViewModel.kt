@@ -38,7 +38,10 @@ import java.time.temporal.ChronoUnit
 @Entity(tableName = "period_records")
 @TypeConverters(Converters::class)
 data class PeriodRecord(
-    @PrimaryKey val startDate: LocalDate, val endDate: LocalDate, val notes: String? = null
+    @PrimaryKey val startDate: LocalDate,
+    val endDate: LocalDate,
+    val notes: String? = null,
+    val updatedAt: Long = System.currentTimeMillis()
 ) {
     val realDuration: Long
         get() = ChronoUnit.DAYS.between(startDate, endDate) + 1
@@ -134,7 +137,10 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
             }
             periodDao.upsert(
                 PeriodRecord(
-                    startDate = date, endDate = defaultEndDate, notes = notes
+                    startDate = date,
+                    endDate = defaultEndDate,
+                    notes = notes,
+                    updatedAt = System.currentTimeMillis()
                 )
             )
         }
@@ -150,13 +156,13 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
             if (nextRecord != null && newEndDate.isAfter(nextRecord.startDate.minusDays(1))) {
                 return@launch
             }
-            periodDao.upsert(record.copy(endDate = newEndDate))
+            periodDao.upsert(record.copy(endDate = newEndDate, updatedAt = System.currentTimeMillis()))
         }
     }
 
     fun updateRecordNotes(record: PeriodRecord, newNotes: String) {
         viewModelScope.launch {
-            periodDao.upsert(record.copy(notes = newNotes))
+            periodDao.upsert(record.copy(notes = newNotes, updatedAt = System.currentTimeMillis()))
         }
     }
 
