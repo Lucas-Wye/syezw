@@ -1,6 +1,5 @@
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use chrono::NaiveDate;
-use dotenvy::dotenv;
 use sqlx::{PgPool, Row};
 
 pub mod db;
@@ -8,19 +7,30 @@ pub mod models;
 
 use db::EnvConfig;
 use log::{info, warn};
-use models::DbConfig;
 use models::{
     DiaryImageRefItem, DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, ImageFetchRequest,
     ImageFetchResponse, ImageHashListResponse, ImageRefsResponse, ImageRefsUpsertRequest,
     ImageUploadRequest, PeriodMeta, PeriodSyncItem, SyncCounts, SyncDownloadEnvelope,
-    SyncDownloadRequest, SyncDownloadResponse, SyncMeta, SyncMetaRequest, SyncMetaResponse,
-    SyncUploadRequest, SyncUploadResponse, TodoSyncItem,
+    SyncDownloadRequest, SyncDownloadResponse, SyncMeta, SyncMetaResponse, SyncUploadRequest,
+    SyncUploadResponse, TodoSyncItem,
 };
 
 #[derive(Clone)]
 pub struct AppState {
     pub env: EnvConfig,
     pub pool: PgPool,
+}
+
+/// Constant-time string comparison to prevent timing attacks on API key validation.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut result = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        result |= x ^ y;
+    }
+    result == 0
 }
 
 fn check_api_key(req: &HttpRequest, state: &AppState) -> Option<HttpResponse> {
@@ -33,7 +43,7 @@ fn check_api_key(req: &HttpRequest, state: &AppState) -> Option<HttpResponse> {
         .get("X-API-Key")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    if provided != expected {
+    if !constant_time_eq(provided.as_bytes(), expected.as_bytes()) {
         return Some(HttpResponse::Unauthorized().body("unauthorized"));
     }
     None
@@ -44,7 +54,6 @@ pub async fn sync_upload(
     req: HttpRequest,
     payload: web::Json<SyncUploadRequest>,
 ) -> actix_web::Result<impl Responder> {
-    dotenv().ok();
     if let Some(resp) = check_api_key(&req, &state) {
         return Ok(resp);
     }
@@ -177,24 +186,23 @@ pub async fn sync_download(
     req: HttpRequest,
     payload: web::Json<SyncDownloadRequest>,
 ) -> actix_web::Result<impl Responder> {
-    dotenv().ok();
     if let Some(resp) = check_api_key(&req, &state) {
         return Ok(resp);
     }
     let diary_meta: std::collections::HashMap<String, i64> = payload
         .diaries
         .iter()
-        .map(|m| (m.uuid.clone(), m.updatedAt))
+        .map(|m| (m.uuid.clone(), m.updated_at))
         .collect();
     let todo_meta: std::collections::HashMap<String, i64> = payload
         .todos
         .iter()
-        .map(|m| (m.uuid.clone(), m.updatedAt))
+        .map(|m| (m.uuid.clone(), m.updated_at))
         .collect();
     let period_meta: std::collections::HashMap<String, i64> = payload
         .periods
         .iter()
-        .map(|m| (m.startDate.clone(), m.updatedAt))
+        .map(|m| (m.start_date.clone(), m.updated_at))
         .collect();
 
     let diary_rows = match sqlx::query(
@@ -235,7 +243,7 @@ pub async fn sync_download(
             uuid: row.get("uuid"),
             author: row.get("author"),
             timestamp: row.get("timestamp"),
-            updatedAt: row.get("updated_at"),
+            updated_at: row.get("updated_at"),
             payload: EncryptedBlob {
                 iv: row.get("payload_iv"),
                 data: row.get("payload_data"),
@@ -243,7 +251,7 @@ pub async fn sync_download(
         })
         .filter(|item| match diary_meta.get(&item.uuid) {
             None => true,
-            Some(local_updated) => item.updatedAt > *local_updated,
+            Some(local_updated) => item.updated_at > *local_updated,
         })
         .collect();
 
@@ -272,10 +280,10 @@ pub async fn sync_download(
         .map(|row| TodoSyncItem {
             uuid: row.get("uuid"),
             author: row.get("author"),
-            isCompleted: row.get("is_completed"),
-            createdAt: row.get("created_at"),
-            completedAt: row.get("completed_at"),
-            updatedAt: row.get("updated_at"),
+            is_completed: row.get("is_completed"),
+            created_at: row.get("created_at"),
+            completed_at: row.get("completed_at"),
+            updated_at: row.get("updated_at"),
             payload: EncryptedBlob {
                 iv: row.get("payload_iv"),
                 data: row.get("payload_data"),
@@ -283,7 +291,7 @@ pub async fn sync_download(
         })
         .filter(|item| match todo_meta.get(&item.uuid) {
             None => true,
-            Some(local_updated) => item.updatedAt > *local_updated,
+            Some(local_updated) => item.updated_at > *local_updated,
         })
         .collect();
 
@@ -310,72 +318,28 @@ pub async fn sync_download(
     let periods = period_rows
         .into_iter()
         .map(|row| PeriodSyncItem {
-            startDate: row.get("start_date"),
-            endDate: row.get("end_date"),
-            updatedAt: row.get("updated_at"),
+            start_date: row.get("start_date"),
+            end_date: row.get("end_date"),
+            updated_at: row.get("updated_at"),
             payload: EncryptedBlob {
                 iv: row.get("payload_iv"),
                 data: row.get("payload_data"),
             },
         })
-        .filter(|item| match period_meta.get(&item.startDate) {
+        .filter(|item| match period_meta.get(&item.start_date) {
             None => true,
-            Some(local_updated) => item.updatedAt > *local_updated,
+            Some(local_updated) => item.updated_at > *local_updated,
         })
         .collect();
 
-    let image_rows = match sqlx::query(
-        r#"
-        SELECT r.file_name, r.diary_uuid, r.updated_at, r.hash, i.blob_iv, i.blob_data
-        FROM diary_image_refs r
-        JOIN diary_images i ON i.hash = r.hash
-        "#,
-    )
-    .fetch_all(&state.pool)
-    .await
-    {
-        Ok(rows) => rows,
-        Err(e) => {
-            warn!("sync_download: image query failed: {}", e);
-            return Ok(
-                HttpResponse::InternalServerError().json(SyncDownloadEnvelope {
-                    ok: false,
-                    message: format!("image query failed: {}", e),
-                    counts: SyncCounts {
-                        diaries: 0,
-                        todos: 0,
-                        periods: 0,
-                        images: 0,
-                    },
-                    data: SyncDownloadResponse {
-                        diaries: vec![],
-                        todos: vec![],
-                        periods: vec![],
-                        images: vec![],
-                    },
-                }),
-            );
-        }
-    };
-    let images = image_rows
-        .into_iter()
-        .map(|row| DiaryImageSyncItem {
-            fileName: row.get("file_name"),
-            diaryUuid: row.get("diary_uuid"),
-            hash: row.get("hash"),
-            updatedAt: row.get("updated_at"),
-            blob: EncryptedBlob {
-                iv: row.get("blob_iv"),
-                data: row.get("blob_data"),
-            },
-        })
-        .collect();
-
+    // Note: Images are NOT included in sync_download to avoid transferring
+    // potentially huge blobs. Clients should use /images/refs + /images/fetch
+    // for on-demand image downloads.
     let response = SyncDownloadResponse {
         diaries,
         todos,
         periods,
-        images,
+        images: vec![],
     };
     let counts = SyncCounts {
         diaries: response.diaries.len(),
@@ -400,7 +364,6 @@ pub async fn image_fetch(
     req: HttpRequest,
     payload: web::Json<ImageFetchRequest>,
 ) -> actix_web::Result<impl Responder> {
-    dotenv().ok();
     if let Some(resp) = check_api_key(&req, &state) {
         return Ok(resp);
     }
@@ -412,17 +375,17 @@ pub async fn image_fetch(
         WHERE r.diary_uuid = $1 AND r.file_name = $2
         "#,
     )
-    .bind(&payload.diaryUuid)
-    .bind(&payload.fileName)
+    .bind(&payload.diary_uuid)
+    .bind(&payload.file_name)
     .fetch_one(&state.pool)
     .await
     .map_err(actix_web::error::ErrorNotFound)?;
 
     let response = ImageFetchResponse {
-        fileName: row.get("file_name"),
-        diaryUuid: row.get("diary_uuid"),
+        file_name: row.get("file_name"),
+        diary_uuid: row.get("diary_uuid"),
         hash: row.get("hash"),
-        updatedAt: row.get("updated_at"),
+        updated_at: row.get("updated_at"),
         blob: EncryptedBlob {
             iv: row.get("blob_iv"),
             data: row.get("blob_data"),
@@ -434,9 +397,7 @@ pub async fn image_fetch(
 pub async fn image_hashes(
     state: web::Data<AppState>,
     req: HttpRequest,
-    _payload: web::Json<DbConfig>,
 ) -> actix_web::Result<impl Responder> {
-    dotenv().ok();
     if let Some(resp) = check_api_key(&req, &state) {
         return Ok(resp);
     }
@@ -458,9 +419,7 @@ pub async fn image_hashes(
 pub async fn image_refs(
     state: web::Data<AppState>,
     req: HttpRequest,
-    _payload: web::Json<DbConfig>,
 ) -> actix_web::Result<impl Responder> {
-    dotenv().ok();
     if let Some(resp) = check_api_key(&req, &state) {
         return Ok(resp);
     }
@@ -483,10 +442,10 @@ pub async fn image_refs(
     let refs: Vec<DiaryImageRefItem> = rows
         .into_iter()
         .map(|row| DiaryImageRefItem {
-            diaryUuid: row.get("diary_uuid"),
-            fileName: row.get("file_name"),
+            diary_uuid: row.get("diary_uuid"),
+            file_name: row.get("file_name"),
             hash: row.get("hash"),
-            updatedAt: row.get("updated_at"),
+            updated_at: row.get("updated_at"),
         })
         .collect();
 
@@ -499,10 +458,16 @@ pub async fn image_upload(
     req: HttpRequest,
     payload: web::Json<ImageUploadRequest>,
 ) -> actix_web::Result<impl Responder> {
-    dotenv().ok();
     if let Some(resp) = check_api_key(&req, &state) {
         return Ok(resp);
     }
+    let mut tx = match state.pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            warn!("image_upload: failed to begin transaction: {}", e);
+            return Ok(HttpResponse::InternalServerError().finish());
+        }
+    };
     let mut success = 0usize;
     for item in &payload.images {
         if let Err(e) = sqlx::query(
@@ -518,14 +483,18 @@ pub async fn image_upload(
         .bind(&item.hash)
         .bind(&item.blob.iv)
         .bind(&item.blob.data)
-        .bind(item.updatedAt)
-        .execute(&state.pool)
+        .bind(item.updated_at)
+        .execute(&mut *tx)
         .await
         {
             warn!("image_upload: upsert failed: {}", e);
             return Ok(HttpResponse::InternalServerError().finish());
         }
         success += 1;
+    }
+    if let Err(e) = tx.commit().await {
+        warn!("image_upload: commit failed: {}", e);
+        return Ok(HttpResponse::InternalServerError().finish());
     }
 
     info!("image_upload success: {} images", success);
@@ -537,10 +506,16 @@ pub async fn image_refs_upsert(
     req: HttpRequest,
     payload: web::Json<ImageRefsUpsertRequest>,
 ) -> actix_web::Result<impl Responder> {
-    dotenv().ok();
     if let Some(resp) = check_api_key(&req, &state) {
         return Ok(resp);
     }
+    let mut tx = match state.pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            warn!("image_refs_upsert: failed to begin transaction: {}", e);
+            return Ok(HttpResponse::InternalServerError().finish());
+        }
+    };
     let mut success = 0usize;
     for item in &payload.refs {
         if let Err(e) = sqlx::query(
@@ -552,17 +527,21 @@ pub async fn image_refs_upsert(
                 updated_at = EXCLUDED.updated_at
             "#,
         )
-        .bind(&item.diaryUuid)
-        .bind(&item.fileName)
+        .bind(&item.diary_uuid)
+        .bind(&item.file_name)
         .bind(&item.hash)
-        .bind(item.updatedAt)
-        .execute(&state.pool)
+        .bind(item.updated_at)
+        .execute(&mut *tx)
         .await
         {
             warn!("image_refs_upsert: upsert failed: {}", e);
             return Ok(HttpResponse::InternalServerError().finish());
         }
         success += 1;
+    }
+    if let Err(e) = tx.commit().await {
+        warn!("image_refs_upsert: commit failed: {}", e);
+        return Ok(HttpResponse::InternalServerError().finish());
     }
 
     info!("image_refs_upsert success: {} refs", success);
@@ -572,9 +551,7 @@ pub async fn image_refs_upsert(
 pub async fn sync_meta(
     state: web::Data<AppState>,
     req: HttpRequest,
-    _payload: web::Json<SyncMetaRequest>,
 ) -> actix_web::Result<impl Responder> {
-    dotenv().ok();
     if let Some(resp) = check_api_key(&req, &state) {
         return Ok(resp);
     }
@@ -593,7 +570,7 @@ pub async fn sync_meta(
         .into_iter()
         .map(|row| SyncMeta {
             uuid: row.get("uuid"),
-            updatedAt: row.get("updated_at"),
+            updated_at: row.get("updated_at"),
         })
         .collect();
 
@@ -611,7 +588,7 @@ pub async fn sync_meta(
         .into_iter()
         .map(|row| SyncMeta {
             uuid: row.get("uuid"),
-            updatedAt: row.get("updated_at"),
+            updated_at: row.get("updated_at"),
         })
         .collect();
 
@@ -629,8 +606,8 @@ pub async fn sync_meta(
     let periods = period_rows
         .into_iter()
         .map(|row| PeriodMeta {
-            startDate: row.get("start_date"),
-            updatedAt: row.get("updated_at"),
+            start_date: row.get("start_date"),
+            updated_at: row.get("updated_at"),
         })
         .collect();
 
@@ -660,7 +637,7 @@ async fn upsert_diary(
     .bind(&item.uuid)
     .bind(&item.author)
     .bind(item.timestamp)
-    .bind(item.updatedAt)
+    .bind(item.updated_at)
     .bind(&item.payload.iv)
     .bind(&item.payload.data)
     .execute(&mut **tx)
@@ -689,10 +666,10 @@ async fn upsert_todo(
     )
     .bind(&item.uuid)
     .bind(&item.author)
-    .bind(item.isCompleted)
-    .bind(item.createdAt)
-    .bind(item.completedAt)
-    .bind(item.updatedAt)
+    .bind(item.is_completed)
+    .bind(item.created_at)
+    .bind(item.completed_at)
+    .bind(item.updated_at)
     .bind(&item.payload.iv)
     .bind(&item.payload.data)
     .execute(&mut **tx)
@@ -704,9 +681,9 @@ async fn upsert_period(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     item: &PeriodSyncItem,
 ) -> Result<(), actix_web::Error> {
-    let start_date = NaiveDate::parse_from_str(&item.startDate, "%Y-%m-%d")
+    let start_date = NaiveDate::parse_from_str(&item.start_date, "%Y-%m-%d")
         .map_err(actix_web::error::ErrorBadRequest)?;
-    let end_date = NaiveDate::parse_from_str(&item.endDate, "%Y-%m-%d")
+    let end_date = NaiveDate::parse_from_str(&item.end_date, "%Y-%m-%d")
         .map_err(actix_web::error::ErrorBadRequest)?;
     sqlx::query(
         r#"
@@ -721,7 +698,7 @@ async fn upsert_period(
     )
     .bind(start_date)
     .bind(end_date)
-    .bind(item.updatedAt)
+    .bind(item.updated_at)
     .bind(&item.payload.iv)
     .bind(&item.payload.data)
     .execute(&mut **tx)
@@ -748,7 +725,7 @@ async fn upsert_image(
     .bind(&item.hash)
     .bind(&item.blob.iv)
     .bind(&item.blob.data)
-    .bind(item.updatedAt)
+    .bind(item.updated_at)
     .execute(&mut **tx)
     .await?;
 
@@ -762,10 +739,10 @@ async fn upsert_image(
             updated_at = EXCLUDED.updated_at
         "#,
     )
-    .bind(&item.diaryUuid)
-    .bind(&item.fileName)
+    .bind(&item.diary_uuid)
+    .bind(&item.file_name)
     .bind(&item.hash)
-    .bind(item.updatedAt)
+    .bind(item.updated_at)
     .execute(&mut **tx)
     .await?;
     Ok(())

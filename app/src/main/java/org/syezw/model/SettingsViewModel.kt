@@ -54,7 +54,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
-import org.syezw.sync.DbConfig
 import org.syezw.sync.DiaryImageSyncItem
 import org.syezw.sync.DiaryImageRefItem
 import org.syezw.sync.DiaryPayload
@@ -73,7 +72,6 @@ import org.syezw.sync.SyncDownloadRequest
 import org.syezw.sync.SyncDownloadEnvelope
 import org.syezw.sync.SyncDownloadResponse
 import org.syezw.sync.SyncMeta
-import org.syezw.sync.SyncMetaRequest
 import org.syezw.sync.SyncMetaResponse
 import org.syezw.sync.SyncUploadRequest
 import org.syezw.sync.SyncUploadResponse
@@ -509,7 +507,6 @@ class SettingsViewModel(
 
                 val apiBaseUrl = remoteApiBaseUrl.first().trim()
                 val apiKey = remoteApiKey.first().trim()
-                val db = DbConfig(host = "", port = 0, database = "", user = "", password = "")
                 val passphrase = aesPassphrase.first()
                 if (apiBaseUrl.isBlank() || passphrase.isBlank() || apiKey.isBlank()) {
                     withContext(Dispatchers.Main) {
@@ -522,7 +519,7 @@ class SettingsViewModel(
                 appendSyncLog("upload", true, "开始上传")
                 val key = deriveAesKeyFromPassphrase(passphrase)
                 setUploadProgress(true, 10, "检查差异")
-                val metaResponse = fetchRemoteMeta(db, apiBaseUrl, apiKey)
+                val metaResponse = fetchRemoteMeta(apiBaseUrl, apiKey)
                 val remoteDiaryMap = metaResponse?.diaries?.associateBy({ it.uuid }, { it.updatedAt }) ?: emptyMap()
                 val remoteTodoMap = metaResponse?.todos?.associateBy({ it.uuid }, { it.updatedAt }) ?: emptyMap()
                 val remotePeriodMap = metaResponse?.periods?.associateBy({ it.startDate }, { it.updatedAt }) ?: emptyMap()
@@ -579,7 +576,6 @@ class SettingsViewModel(
 
                 val totalTextItems = diaries.size + todos.size + periods.size
                 var processedTextItems = 0
-                val client = createHttpClient()
 
                 fun updateTextProgress() {
                     val percent = if (totalTextItems == 0) 80 else (processedTextItems * 80 / totalTextItems)
@@ -590,7 +586,7 @@ class SettingsViewModel(
 
                 val diaryBatches = chunkBySize(diaries, maxUploadBatchBytes)
                 for (batch in diaryBatches) {
-                    val resp = sendUploadBatch(client, apiBaseUrl, apiKey, db, batch, emptyList(), emptyList(), images)
+                    val resp = sendUploadBatch(apiBaseUrl, apiKey, batch, emptyList(), emptyList(), images)
                     if (resp == null || !resp.ok) {
                         val msg = resp?.message ?: "上传失败"
                         withContext(Dispatchers.Main) {
@@ -606,7 +602,7 @@ class SettingsViewModel(
 
                 val todoBatches = chunkBySize(todos, maxUploadBatchBytes)
                 for (batch in todoBatches) {
-                    val resp = sendUploadBatch(client, apiBaseUrl, apiKey, db, emptyList(), batch, emptyList(), images)
+                    val resp = sendUploadBatch(apiBaseUrl, apiKey, emptyList(), batch, emptyList(), images)
                     if (resp == null || !resp.ok) {
                         val msg = resp?.message ?: "上传失败"
                         withContext(Dispatchers.Main) {
@@ -622,7 +618,7 @@ class SettingsViewModel(
 
                 val periodBatches = chunkBySize(periods, maxUploadBatchBytes)
                 for (batch in periodBatches) {
-                    val resp = sendUploadBatch(client, apiBaseUrl, apiKey, db, emptyList(), emptyList(), batch, images)
+                    val resp = sendUploadBatch(apiBaseUrl, apiKey, emptyList(), emptyList(), batch, images)
                     if (resp == null || !resp.ok) {
                         val msg = resp?.message ?: "上传失败"
                         withContext(Dispatchers.Main) {
@@ -636,7 +632,7 @@ class SettingsViewModel(
                     updateTextProgress()
                 }
 
-                val imageUploadCount = syncImageUploads(db, key, apiKey) { done, total ->
+                val imageUploadCount = syncImageUploads(key, apiKey) { done, total ->
                     val percent = if (total == 0) 100 else 80 + (done * 20 / total)
                     setUploadProgress(true, percent, "上传图片 ${done}/${total}")
                 }
@@ -706,7 +702,6 @@ class SettingsViewModel(
                 setDownloadProgress(true, 0, "准备下载")
                 val apiBaseUrl = remoteApiBaseUrl.first().trim()
                 val apiKey = remoteApiKey.first().trim()
-                val db = DbConfig(host = "", port = 0, database = "", user = "", password = "")
                 val passphrase = aesPassphrase.first()
                 if (apiBaseUrl.isBlank() || passphrase.isBlank() || apiKey.isBlank()) {
                     withContext(Dispatchers.Main) {
@@ -726,20 +721,18 @@ class SettingsViewModel(
                 val localPeriodMeta = database.periodDao().getAllRecords().first()
                     .map { PeriodMeta(startDate = it.startDate.toString(), updatedAt = it.updatedAt) }
                 val requestBody = SyncDownloadRequest(
-                    db = db,
                     diaries = localDiaryMeta,
                     todos = localTodoMeta,
                     periods = localPeriodMeta
                 )
                 val json = gson.toJson(requestBody)
-                val client = createHttpClient()
                 val request = Request.Builder()
                     .url("${apiBaseUrl.trimEnd('/')}/sync/download")
                     .addHeader("X-API-Key", apiKey)
                     .post(json.toRequestBody("application/json".toMediaType()))
                     .build()
 
-                val responseBody = client.newCall(request).execute().use { response ->
+                val responseBody = httpClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(application, "下载失败: ${response.code}", Toast.LENGTH_LONG).show()
@@ -766,7 +759,7 @@ class SettingsViewModel(
                 val response = envelope.data
                 setDownloadProgress(true, 80, "处理数据")
                 val decryptOk = applyDownloadedData(response, key)
-                val imageDownloadCount = syncImageDownloads(db, key, apiKey) { done, total ->
+                val imageDownloadCount = syncImageDownloads(key, apiKey) { done, total ->
                     val percent = if (total == 0) 100 else 80 + (done * 20 / total)
                     setDownloadProgress(true, percent, "下载图片 ${done}/${total}")
                 }
@@ -916,21 +909,19 @@ class SettingsViewModel(
             try {
                 val apiBaseUrl = remoteApiBaseUrl.first().trim()
                 val apiKey = remoteApiKey.first().trim()
-                val db = DbConfig(host = "", port = 0, database = "", user = "", password = "")
                 val passphrase = aesPassphrase.first()
                 if (apiBaseUrl.isBlank() || passphrase.isBlank() || apiKey.isBlank()) return@withContext false
                 val diaryTitle = database.diaryDao().getByUuid(diaryUuid)?.content?.take(10) ?: "unknown"
                 val key = deriveAesKeyFromPassphrase(passphrase)
                 val normalizedFileName = normalizeDiaryImageName(fileName)
-                val requestBody = ImageFetchRequest(db = db, diaryUuid = diaryUuid, fileName = normalizedFileName)
+                val requestBody = ImageFetchRequest(diaryUuid = diaryUuid, fileName = normalizedFileName)
                 val json = gson.toJson(requestBody)
-                val client = createHttpClient()
                 val request = Request.Builder()
                     .url("${apiBaseUrl.trimEnd('/')}/images/fetch")
                     .addHeader("X-API-Key", apiKey)
                     .post(json.toRequestBody("application/json".toMediaType()))
                     .build()
-                val responseBody = client.newCall(request).execute().use { response ->
+                val responseBody = httpClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
                         appendSyncLog(
                             "image_download",
@@ -974,23 +965,20 @@ class SettingsViewModel(
     }
 
     private suspend fun syncImageUploads(
-        db: DbConfig,
         key: javax.crypto.spec.SecretKeySpec,
         apiKey: String,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
     ): Int {
         val apiBaseUrl = remoteApiBaseUrl.first().trim()
         if (apiBaseUrl.isBlank() || apiKey.isBlank()) return 0
-        val client = createHttpClient()
 
         val hashesResponse = runCatching {
-            val json = gson.toJson(db)
             val request = Request.Builder()
                 .url("${apiBaseUrl.trimEnd('/')}/images/hashes")
                 .addHeader("X-API-Key", apiKey)
-                .post(json.toRequestBody("application/json".toMediaType()))
+                .post("{}".toRequestBody("application/json".toMediaType()))
                 .build()
-            client.newCall(request).execute().use { response ->
+            httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@runCatching ImageHashListResponse(emptyList())
                 gson.fromJson(response.body?.string() ?: "", ImageHashListResponse::class.java)
             }
@@ -1039,48 +1027,55 @@ class SettingsViewModel(
         var uploadedCount = 0
         val totalImages = imagesToUpload.size
         onProgress(0, totalImages)
-        if (imagesToUpload.isNotEmpty()) {
-            val req = ImageUploadRequest(db = db, images = imagesToUpload)
+        // Batch image uploads to avoid huge single requests
+        val imageBatches = chunkBySize(imagesToUpload, maxUploadBatchBytes)
+        for (batch in imageBatches) {
+            val req = ImageUploadRequest(images = batch)
             val json = gson.toJson(req)
             val request = Request.Builder()
                 .url("${apiBaseUrl.trimEnd('/')}/images/upload")
                 .addHeader("X-API-Key", apiKey)
                 .post(json.toRequestBody("application/json".toMediaType()))
                 .build()
-            client.newCall(request).execute().close()
-            uploadedCount = imagesToUpload.size
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    appendSyncLog("image_upload", false, "图片上传失败: ${response.code}")
+                }
+            }
+            uploadedCount += batch.size
             onProgress(uploadedCount, totalImages)
         }
 
         if (refsToUpsert.isNotEmpty()) {
-            val req = ImageRefsUpsertRequest(db = db, refs = refsToUpsert)
+            val req = ImageRefsUpsertRequest(refs = refsToUpsert)
             val json = gson.toJson(req)
             val request = Request.Builder()
                 .url("${apiBaseUrl.trimEnd('/')}/images/refs/upsert")
                 .addHeader("X-API-Key", apiKey)
                 .post(json.toRequestBody("application/json".toMediaType()))
                 .build()
-            client.newCall(request).execute().close()
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    appendSyncLog("image_upload", false, "图片引用更新失败: ${response.code}")
+                }
+            }
         }
         return uploadedCount
     }
 
     private suspend fun syncImageDownloads(
-        db: DbConfig,
         key: javax.crypto.spec.SecretKeySpec,
         apiKey: String,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
     ): Int {
         val apiBaseUrl = remoteApiBaseUrl.first().trim()
         if (apiBaseUrl.isBlank() || apiKey.isBlank()) return 0
-        val client = createHttpClient()
-        val json = gson.toJson(db)
         val request = Request.Builder()
             .url("${apiBaseUrl.trimEnd('/')}/images/refs")
             .addHeader("X-API-Key", apiKey)
-            .post(json.toRequestBody("application/json".toMediaType()))
+            .post("{}".toRequestBody("application/json".toMediaType()))
             .build()
-        val responseBody = client.newCall(request).execute().use { response ->
+        val responseBody = httpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return 0
             response.body?.string() ?: return 0
         }
@@ -1109,10 +1104,6 @@ class SettingsViewModel(
         return downloadedCount
     }
 
-    private suspend fun loadDbConfig(): DbConfig {
-        return DbConfig(host = "", port = 0, database = "", user = "", password = "")
-    }
-
     private fun setUploadProgress(inProgress: Boolean, percent: Int, message: String) {
         _uploadProgress.value = SyncProgressState(inProgress, percent.coerceIn(0, 100), message)
     }
@@ -1121,8 +1112,9 @@ class SettingsViewModel(
         _downloadProgress.value = SyncProgressState(inProgress, percent.coerceIn(0, 100), message)
     }
 
-    private fun createHttpClient(): OkHttpClient {
-        return OkHttpClient.Builder()
+    /** Shared OkHttpClient instance – creating one per call wastes connections and threads. */
+    private val httpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
@@ -1152,17 +1144,14 @@ class SettingsViewModel(
     }
 
     private fun sendUploadBatch(
-        client: OkHttpClient,
         apiBaseUrl: String,
         apiKey: String,
-        db: DbConfig,
         diaries: List<DiarySyncItem>,
         todos: List<TodoSyncItem>,
         periods: List<PeriodSyncItem>,
         images: List<DiaryImageSyncItem>
     ): SyncUploadResponse? {
         val requestBody = SyncUploadRequest(
-            db = db,
             diaries = diaries,
             todos = todos,
             periods = periods,
@@ -1175,7 +1164,7 @@ class SettingsViewModel(
             .post(json.toRequestBody("application/json".toMediaType()))
             .build()
 
-        return client.newCall(request).execute().use { response ->
+        return httpClient.newCall(request).execute().use { response ->
             val body = response.body?.string() ?: ""
             val parsed = runCatching { gson.fromJson(body, SyncUploadResponse::class.java) }.getOrNull()
             if (!response.isSuccessful) {
@@ -1213,19 +1202,16 @@ class SettingsViewModel(
     }
 
     private fun fetchRemoteMeta(
-        db: DbConfig,
         apiBaseUrl: String,
         apiKey: String
     ): SyncMetaResponse? {
         return try {
-            val client = createHttpClient()
-            val json = gson.toJson(SyncMetaRequest(db = db))
             val request = Request.Builder()
                 .url("${apiBaseUrl.trimEnd('/')}/sync/meta")
                 .addHeader("X-API-Key", apiKey)
-                .post(json.toRequestBody("application/json".toMediaType()))
+                .post("{}".toRequestBody("application/json".toMediaType()))
                 .build()
-            client.newCall(request).execute().use { response ->
+            httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return null
                 val body = response.body?.string() ?: return null
                 gson.fromJson(body, SyncMetaResponse::class.java)

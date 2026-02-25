@@ -1,5 +1,3 @@
-use crate::models::DbConfig;
-
 #[derive(Clone)]
 pub struct EnvConfig {
     pub host: String,
@@ -32,14 +30,9 @@ impl EnvConfig {
     }
 }
 
-pub fn build_db_url(_db: &DbConfig, env: &EnvConfig) -> String {
-    let host = &env.host;
-    let port = env.port;
-    let database = &env.database;
-    let user = &env.user;
-    let password = &env.password;
+pub fn build_db_url(env: &EnvConfig) -> String {
     format!(
         "postgresql://{}:{}@{}:{}/{}",
-        user, password, host, port, database
+        env.user, env.password, env.host, env.port, env.database
     )
 }

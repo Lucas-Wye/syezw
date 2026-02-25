@@ -7,54 +7,48 @@ pub struct EncryptedBlob {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DbConfig {
-    pub host: String,
-    pub port: i32,
-    pub database: String,
-    pub user: String,
-    pub password: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DiarySyncItem {
     pub uuid: String,
     pub author: String,
     pub timestamp: i64,
-    pub updatedAt: i64,
+    pub updated_at: i64,
     pub payload: EncryptedBlob,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TodoSyncItem {
     pub uuid: String,
     pub author: String,
-    pub isCompleted: bool,
-    pub createdAt: i64,
-    pub completedAt: Option<i64>,
-    pub updatedAt: i64,
+    pub is_completed: bool,
+    pub created_at: i64,
+    pub completed_at: Option<i64>,
+    pub updated_at: i64,
     pub payload: EncryptedBlob,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct PeriodSyncItem {
-    pub startDate: String,
-    pub endDate: String,
-    pub updatedAt: i64,
+    pub start_date: String,
+    pub end_date: String,
+    pub updated_at: i64,
     pub payload: EncryptedBlob,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DiaryImageSyncItem {
-    pub fileName: String,
-    pub diaryUuid: String,
+    pub file_name: String,
+    pub diary_uuid: String,
     pub hash: String,
-    pub updatedAt: i64,
+    pub updated_at: i64,
     pub blob: EncryptedBlob,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SyncUploadRequest {
-    pub db: DbConfig,
     pub diaries: Vec<DiarySyncItem>,
     pub todos: Vec<TodoSyncItem>,
     pub periods: Vec<PeriodSyncItem>,
@@ -86,7 +80,6 @@ pub struct SyncDownloadEnvelope {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SyncDownloadRequest {
-    pub db: DbConfig,
     #[serde(default)]
     pub diaries: Vec<SyncMeta>,
     #[serde(default)]
@@ -96,15 +89,17 @@ pub struct SyncDownloadRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SyncMeta {
     pub uuid: String,
-    pub updatedAt: i64,
+    pub updated_at: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct PeriodMeta {
-    pub startDate: String,
-    pub updatedAt: i64,
+    pub start_date: String,
+    pub updated_at: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -118,38 +113,38 @@ pub struct ImageRefsResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DiaryImageRefItem {
-    pub diaryUuid: String,
-    pub fileName: String,
+    pub diary_uuid: String,
+    pub file_name: String,
     pub hash: String,
-    pub updatedAt: i64,
+    pub updated_at: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImageUploadRequest {
-    pub db: DbConfig,
     pub images: Vec<DiaryImageSyncItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImageRefsUpsertRequest {
-    pub db: DbConfig,
     pub refs: Vec<DiaryImageRefItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ImageFetchRequest {
-    pub db: DbConfig,
-    pub diaryUuid: String,
-    pub fileName: String,
+    pub diary_uuid: String,
+    pub file_name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ImageFetchResponse {
-    pub fileName: String,
-    pub diaryUuid: String,
+    pub file_name: String,
+    pub diary_uuid: String,
     pub hash: String,
-    pub updatedAt: i64,
+    pub updated_at: i64,
     pub blob: EncryptedBlob,
 }
 
@@ -159,11 +154,6 @@ pub struct SyncDownloadResponse {
     pub todos: Vec<TodoSyncItem>,
     pub periods: Vec<PeriodSyncItem>,
     pub images: Vec<DiaryImageSyncItem>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SyncMetaRequest {
-    pub db: DbConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

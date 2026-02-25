@@ -5,14 +5,6 @@ data class EncryptedBlob(
     val data: String
 )
 
-data class DbConfig(
-    val host: String,
-    val port: Int,
-    val database: String,
-    val user: String,
-    val password: String
-)
-
 data class DiaryPayload(
     val content: String,
     val tags: List<String>,
@@ -69,7 +61,6 @@ data class DiaryImageRefItem(
 )
 
 data class SyncUploadRequest(
-    val db: DbConfig,
     val diaries: List<DiarySyncItem>,
     val todos: List<TodoSyncItem>,
     val periods: List<PeriodSyncItem>,
@@ -90,7 +81,6 @@ data class SyncUploadResponse(
 )
 
 data class SyncDownloadRequest(
-    val db: DbConfig,
     val diaries: List<SyncMeta> = emptyList(),
     val todos: List<SyncMeta> = emptyList(),
     val periods: List<PeriodMeta> = emptyList()
@@ -107,7 +97,6 @@ data class PeriodMeta(
 )
 
 data class ImageFetchRequest(
-    val db: DbConfig,
     val diaryUuid: String,
     val fileName: String
 )
@@ -129,12 +118,10 @@ data class ImageRefsResponse(
 )
 
 data class ImageUploadRequest(
-    val db: DbConfig,
     val images: List<DiaryImageSyncItem>
 )
 
 data class ImageRefsUpsertRequest(
-    val db: DbConfig,
     val refs: List<DiaryImageRefItem>
 )
 
@@ -152,9 +139,6 @@ data class SyncDownloadResponse(
     val images: List<DiaryImageSyncItem>
 )
 
-data class SyncMetaRequest(
-    val db: DbConfig
-)
 
 data class SyncMetaResponse(
     val diaries: List<SyncMeta>,

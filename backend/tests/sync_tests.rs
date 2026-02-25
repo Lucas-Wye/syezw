@@ -7,8 +7,8 @@ use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 use syezw_sync_backend::db::EnvConfig;
 use syezw_sync_backend::models::{
-    DbConfig, DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, PeriodSyncItem,
-    SyncDownloadEnvelope, SyncDownloadRequest, SyncUploadRequest, TodoSyncItem,
+    DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, PeriodSyncItem, SyncDownloadEnvelope,
+    SyncDownloadRequest, SyncUploadRequest, TodoSyncItem,
 };
 
 fn log_db_info(label: &str, host: &str, port: i32, db: &str, user: &str) {
@@ -95,21 +95,12 @@ async fn upload_then_download_round_trip() {
     )
     .await;
 
-    let db_cfg = DbConfig {
-        host: test_host,
-        port: if test_port == 0 { 5432 } else { test_port },
-        database: test_db,
-        user: test_user,
-        password: test_password,
-    };
-
     let upload = SyncUploadRequest {
-        db: db_cfg.clone(),
         diaries: vec![DiarySyncItem {
             uuid: diary_uuid.clone(),
             author: "a".to_string(),
             timestamp: 1,
-            updatedAt: 2,
+            updated_at: 2,
             payload: EncryptedBlob {
                 iv: "iv".to_string(),
                 data: "data".to_string(),
@@ -118,29 +109,29 @@ async fn upload_then_download_round_trip() {
         todos: vec![TodoSyncItem {
             uuid: todo_uuid.clone(),
             author: "a".to_string(),
-            isCompleted: false,
-            createdAt: 3,
-            completedAt: None,
-            updatedAt: 4,
+            is_completed: false,
+            created_at: 3,
+            completed_at: None,
+            updated_at: 4,
             payload: EncryptedBlob {
                 iv: "iv".to_string(),
                 data: "data".to_string(),
             },
         }],
         periods: vec![PeriodSyncItem {
-            startDate: "2025-01-01".to_string(),
-            endDate: "2025-01-05".to_string(),
-            updatedAt: 5,
+            start_date: "2025-01-01".to_string(),
+            end_date: "2025-01-05".to_string(),
+            updated_at: 5,
             payload: EncryptedBlob {
                 iv: "iv".to_string(),
                 data: "data".to_string(),
             },
         }],
         images: vec![DiaryImageSyncItem {
-            fileName: "img.jpg".to_string(),
-            diaryUuid: diary_uuid.clone(),
+            file_name: "img.jpg".to_string(),
+            diary_uuid: diary_uuid.clone(),
             hash: "hash123".to_string(),
-            updatedAt: 6,
+            updated_at: 6,
             blob: EncryptedBlob {
                 iv: "iv".to_string(),
                 data: "data".to_string(),
@@ -157,7 +148,6 @@ async fn upload_then_download_round_trip() {
     assert!(resp.status().is_success());
 
     let download_req = SyncDownloadRequest {
-        db: db_cfg,
         diaries: vec![],
         todos: vec![],
         periods: vec![],
@@ -176,11 +166,8 @@ async fn upload_then_download_round_trip() {
     assert!(data
         .periods
         .iter()
-        .any(|p| p.startDate == "2025-01-01" && p.endDate == "2025-01-05"));
-    assert!(data
-        .images
-        .iter()
-        .any(|img| img.diaryUuid == diary_uuid && img.fileName == "img.jpg"));
+        .any(|p| p.start_date == "2025-01-01" && p.end_date == "2025-01-05"));
+    // Images are no longer included in sync_download (fetched via /images/* endpoints)
 }
 
 #[actix_web::test]
@@ -279,21 +266,12 @@ async fn upload_with_image_hash_dedup_and_fetch() {
     )
     .await;
 
-    let db_cfg = DbConfig {
-        host: test_host,
-        port: if test_port == 0 { 5432 } else { test_port },
-        database: test_db,
-        user: test_user,
-        password: test_password,
-    };
-
     let upload = SyncUploadRequest {
-        db: db_cfg.clone(),
         diaries: vec![DiarySyncItem {
             uuid: diary_uuid.clone(),
             author: "a".to_string(),
             timestamp: 1,
-            updatedAt: 2,
+            updated_at: 2,
             payload: EncryptedBlob {
                 iv: "iv".to_string(),
                 data: "data".to_string(),
@@ -302,10 +280,10 @@ async fn upload_with_image_hash_dedup_and_fetch() {
         todos: vec![],
         periods: vec![],
         images: vec![DiaryImageSyncItem {
-            fileName: "img.jpg".to_string(),
-            diaryUuid: diary_uuid.clone(),
+            file_name: "img.jpg".to_string(),
+            diary_uuid: diary_uuid.clone(),
             hash: "hash123".to_string(),
-            updatedAt: 6,
+            updated_at: 6,
             blob: EncryptedBlob {
                 iv: "iv".to_string(),
                 data: "data".to_string(),
@@ -326,12 +304,11 @@ async fn upload_with_image_hash_dedup_and_fetch() {
         .uri("/images/upload")
         .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap()))
         .set_json(&syezw_sync_backend::models::ImageUploadRequest {
-            db: db_cfg.clone(),
             images: vec![DiaryImageSyncItem {
-                fileName: "img.jpg".to_string(),
-                diaryUuid: diary_uuid.clone(),
+                file_name: "img.jpg".to_string(),
+                diary_uuid: diary_uuid.clone(),
                 hash: "hash123".to_string(),
-                updatedAt: 6,
+                updated_at: 6,
                 blob: EncryptedBlob {
                     iv: "iv".to_string(),
                     data: "data".to_string(),
@@ -346,12 +323,11 @@ async fn upload_with_image_hash_dedup_and_fetch() {
         .uri("/images/refs/upsert")
         .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap()))
         .set_json(&syezw_sync_backend::models::ImageRefsUpsertRequest {
-            db: db_cfg.clone(),
             refs: vec![syezw_sync_backend::models::DiaryImageRefItem {
-                diaryUuid: diary_uuid.clone(),
-                fileName: "img.jpg".to_string(),
+                diary_uuid: diary_uuid.clone(),
+                file_name: "img.jpg".to_string(),
                 hash: "hash123".to_string(),
-                updatedAt: 6,
+                updated_at: 6,
             }],
         })
         .to_request();
@@ -362,9 +338,8 @@ async fn upload_with_image_hash_dedup_and_fetch() {
         .uri("/images/fetch")
         .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap()))
         .set_json(&syezw_sync_backend::models::ImageFetchRequest {
-            db: db_cfg.clone(),
-            diaryUuid: diary_uuid,
-            fileName: "img.jpg".to_string(),
+            diary_uuid: diary_uuid,
+            file_name: "img.jpg".to_string(),
         })
         .to_request();
     let resp =

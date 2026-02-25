@@ -11,12 +11,6 @@ dotenvy = "0.15"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono", "macros"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 chrono = { version = "0.4", features = ["serde"] }
-reqwest = { version = "0.11", features = ["blocking", "json", "rustls-tls"] }
-aes-gcm = "0.10"
-md5 = "0.7"
-rand = "0.8"
 anyhow = "1.0"
-base64 = "0.22"
-sha2 = "0.10"
 env_logger = "0.11"
 log = "0.4"

@@ -14,16 +14,7 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
     env_logger::init_from_env(Env::default().default_filter_or("info"));
     let env = EnvConfig::from_env();
-    let db_url = build_db_url(
-        &syezw_sync_backend::models::DbConfig {
-            host: String::new(),
-            port: 0,
-            database: String::new(),
-            user: String::new(),
-            password: String::new(),
-        },
-        &env,
-    );
+    let db_url = build_db_url(&env);
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&db_url)
@@ -33,8 +24,10 @@ async fn main() -> std::io::Result<()> {
     info!("Starting server on {}", bind_addr);
 
     HttpServer::new(move || {
+        let json_cfg = web::JsonConfig::default().limit(50 * 1024 * 1024); // 50 MB limit for image uploads
         App::new()
             .wrap(Logger::default())
+            .app_data(json_cfg)
             .app_data(web::Data::new(AppState {
                 env: env.clone(),
                 pool: pool.clone(),

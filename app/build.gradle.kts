@@ -13,7 +13,7 @@ android {
         applicationId = "org.syezw"
         minSdk = 34
         targetSdk = 35
-        versionCode = 7
+        versionCode = 2
         versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -71,8 +71,6 @@ dependencies {
     implementation(libs.androidx.material3.adaptive.navigation.suite)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.activity.compose.v1100)
-    implementation(libs.protolite.well.known.types)
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
