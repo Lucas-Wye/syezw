@@ -40,6 +40,7 @@ import org.syezw.screen.OurLoveViewModelFactory
 import org.syezw.screen.PeriodTrackingScreen
 import org.syezw.screen.SettingsScreen
 import org.syezw.screen.TODOScreen
+import org.syezw.screen.TradeRecordScreen
 import org.syezw.ui.theme.SyezwTheme
 
 val Context.dataStore by preferencesDataStore(name = "settings")
@@ -71,6 +72,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SyezwAppScreen() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    var showTradeRecordScreen by rememberSaveable { mutableStateOf(false) }
+    val hideNavigation = showTradeRecordScreen
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val database = AppDatabase.getDatabase(context)
@@ -103,54 +106,64 @@ fun SyezwAppScreen() {
         }
     }
 
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            visibleDestinations.forEach { destination ->
-                item(
-                    icon = {
-                        Icon(
-                            imageVector = destination.icon,
-                            contentDescription = destination.label
-                        )
-                    },
-                    label = { Text(destination.label) },
-                    selected = destination == currentDestination,
-                    onClick = { currentDestination = destination }
-                )
-            }
-        }) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            val screenModifier = Modifier.padding(innerPadding)
+    if (showTradeRecordScreen) {
+        TradeRecordScreen(
+            settingsViewModel = settingsViewModel,
+            modifier = Modifier.fillMaxSize(),
+            onBack = { showTradeRecordScreen = false }
+        )
+    } else {
+        NavigationSuiteScaffold(
+            navigationSuiteItems = {
+                visibleDestinations.forEach { destination ->
+                    item(
+                        icon = {
+                            Icon(
+                                imageVector = destination.icon,
+                                contentDescription = destination.label
+                            )
+                        },
+                        label = { Text(destination.label) },
+                        selected = destination == currentDestination,
+                        onClick = { currentDestination = destination }
+                    )
+                }
+            }) {
+            Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                val screenModifier = Modifier.padding(innerPadding)
 
-            when (currentDestination) {
-                AppDestinations.HOME -> OurLove(
-                    viewModel = ourLoveViewModel, modifier = screenModifier
-                )
+                when (currentDestination) {
+                    AppDestinations.HOME -> OurLove(
+                        viewModel = ourLoveViewModel, modifier = screenModifier
+                    )
 
-                AppDestinations.TODO -> TODOScreen(
-                    viewModel = todoViewModel, modifier = screenModifier
-                )
+                    AppDestinations.TODO -> TODOScreen(
+                        viewModel = todoViewModel, modifier = screenModifier
+                    )
 
-                AppDestinations.DIARY -> DiaryScreen(
-                    viewModel = diaryViewModel,
-                    settingsViewModel = settingsViewModel,
-                    modifier = screenModifier,
-                    onNavigateToEditEntry = { entryId ->
-                        if (entryId != null) {
-                            diaryViewModel.getEntryById(entryId)
-                        } else {
-                            diaryViewModel.clearInputFields()
-                        }
-                    })
+                    AppDestinations.DIARY -> DiaryScreen(
+                        viewModel = diaryViewModel,
+                        settingsViewModel = settingsViewModel,
+                        modifier = screenModifier,
+                        onNavigateToEditEntry = { entryId ->
+                            if (entryId != null) {
+                                diaryViewModel.getEntryById(entryId)
+                            } else {
+                                diaryViewModel.clearInputFields()
+                            }
+                        })
 
-                AppDestinations.PERIOD -> PeriodTrackingScreen(
-                    viewModel = periodViewModel, modifier = screenModifier
-                )
+                    AppDestinations.PERIOD -> PeriodTrackingScreen(
+                        viewModel = periodViewModel, modifier = screenModifier
+                    )
 
                 AppDestinations.SETTINGS -> SettingsScreen(
-                    settingsViewModel = settingsViewModel, modifier = screenModifier
+                    settingsViewModel = settingsViewModel,
+                    modifier = screenModifier,
+                    onOpenTradeRecord = { showTradeRecordScreen = true }
                 )
             }
         }
     }
+}
 }

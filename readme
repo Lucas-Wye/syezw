@@ -33,19 +33,27 @@ $env:RELEASE_KEY_PASSWORD="syezw2025"
 ```
 sdkmanager.bat --list --sdk_root=D:\software\bin\android\sdk > 1.log
 sdkmanager --sdk_root=D:\software\bin\android\sdk "platforms;android-30" "build-tools;30.0.0"
+
+sdkmanager --sdk_root=D:\software\bin\android\sdk "emulator" "system-images;android-34;google_apis;x86_64"
 ```
 
 # DB
 ```
+DELETE FROM diary_image_refs;
+DELETE FROM diary_images;
+DELETE FROM diary_sync;
+DELETE FROM period_sync;
+DELETE FROM todo_sync;
+
 SELECT * FROM diary_image_refs;
 SELECT * FROM diary_images;
 SELECT * FROM diary_sync;
 SELECT * FROM period_sync;
 SELECT * FROM todo_sync;
 
-DELETE FROM diary_image_refs;
-DELETE FROM diary_images;
-DELETE FROM diary_sync;
-DELETE FROM period_sync;
-DELETE FROM todo_sync;
+SELECT COUNT(*) FROM diary_image_refs;
+SELECT COUNT(*) FROM diary_images;
+SELECT COUNT(*) FROM diary_sync;
+SELECT COUNT(*) FROM period_sync;
+SELECT COUNT(*) FROM todo_sync;
 ```

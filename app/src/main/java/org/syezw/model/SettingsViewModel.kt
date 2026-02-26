@@ -135,6 +135,7 @@ class SettingsViewModel(
         val DATE_TOGETHER = stringPreferencesKey("date_together")
         val PERIOD_TRACKING_ENABLED = booleanPreferencesKey("period_tracking_enabled")
         val PERIOD_DATA = stringPreferencesKey("period_data_json")
+        val TRADE_RECORD_STATE = stringPreferencesKey("trade_record_state_json")
         val LOVE_BG_IMAGE_URI = stringPreferencesKey("love_bg_image_uri")
         val LOVE_BG_ENABLED = booleanPreferencesKey("love_bg_enabled")
         val REMOTE_API_BASE_URL = stringPreferencesKey("remote_api_base_url")
@@ -171,6 +172,10 @@ class SettingsViewModel(
         preferences[PreferencesKeys.DATE_TOGETHER] ?: "2025-04-06"
     }
 
+    val tradeRecordState: Flow<TradeRecordState> = dataStore.data.map { preferences ->
+        TradeJson.tradeRecordStateFromJson(preferences[PreferencesKeys.TRADE_RECORD_STATE])
+    }
+
     val isPeriodTrackingEnabledStateFlow: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[PreferencesKeys.PERIOD_TRACKING_ENABLED] ?: false
     }
@@ -205,6 +210,15 @@ class SettingsViewModel(
         viewModelScope.launch {
             dataStore.edit { settings ->
                 settings[PreferencesKeys.PERIOD_TRACKING_ENABLED] = isEnabled
+            }
+        }
+    }
+
+    fun updateTradeRecordState(newState: TradeRecordState) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[PreferencesKeys.TRADE_RECORD_STATE] =
+                    TradeJson.tradeRecordStateToJson(newState)
             }
         }
     }

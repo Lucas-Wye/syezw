@@ -19,6 +19,7 @@ import kotlinx.coroutines.withContext
 import org.syezw.preference.SettingsManager
 import org.syezw.data.TodoTask
 import org.syezw.data.TodoTaskDao
+import org.syezw.data.TodoTaskImport
 import java.io.BufferedReader
 import java.io.FileOutputStream
 import java.io.InputStreamReader
@@ -156,8 +157,8 @@ class TodoViewModel(
                     return@launch
                 }
 
-                val listType: Type = object : TypeToken<List<TodoTask>>() {}.type
-                val importedTasks: List<TodoTask> = gson.fromJson(jsonString.toString(), listType)
+                val listType: Type = object : TypeToken<List<TodoTaskImport>>() {}.type
+                val importedTasks: List<TodoTaskImport> = gson.fromJson(jsonString.toString(), listType)
 
                 if (importedTasks.isEmpty()) {
                     withContext(Dispatchers.Main) {
@@ -172,26 +173,16 @@ class TodoViewModel(
                 var newTasksCount = 0
 
                 for (importedTask in importedTasks) {
-                    // Simple duplicate check: by name and createdAt timestamp.
-                    // This assumes that if a task with the same name was created at the exact same millisecond,
-                    // it's a duplicate. You might want a more robust strategy if creation times can clash
-                    // or if names are not unique enough.
+                    // Convert to TodoTask with proper defaults
+                    val task = importedTask.toTodoTask()
+                    
+                    // Check for duplicates by name and createdAt
                     val isDuplicate = existingTasks.any { existing ->
-                        existing.name == importedTask.name && existing.createdAt == importedTask.createdAt
+                        existing.name == task.name && existing.createdAt == task.createdAt
                     }
 
                     if (!isDuplicate) {
-                        // Insert as a new task, clearing the ID so Room generates a new one.
-                        // Ensure all fields from the importedTask are correctly copied.
-                        todoTaskDao.insert(
-                            importedTask.copy(
-                                id = 0, // Let Room generate new ID
-                                isCompleted = importedTask.isCompleted, // Preserve completion status
-                                completedAt = if (importedTask.isCompleted) importedTask.completedAt
-                                    ?: System.currentTimeMillis() else null
-                                // If imported as completed but no completedAt, set to now or preserve null based on your logic
-                            )
-                        )
+                        todoTaskDao.insert(task)
                         newTasksCount++
                     }
                     // Optional: Add logic here to update existing tasks if a match is found based on a unique ID (not 'id' from JSON)

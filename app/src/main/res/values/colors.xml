@@ -11,4 +11,11 @@
 <color name="light_blue_600">#FF039BE5</color>
 <color name="gray_400">#FFBDBDBD</color>
 <color name="gray_600">#FF757575</color>
+<color name="trade_text_primary">#FF333333</color>
+<color name="trade_text_secondary">#FF666666</color>
+<color name="trade_text_tertiary">#FF999999</color>
+<color name="trade_divider">#FFEBEBEB</color>
+<color name="trade_red">#FFE53935</color>
+<color name="trade_green">#FF2E7D32</color>
+<color name="trade_background">#FFF4F6FA</color>
 </resources>

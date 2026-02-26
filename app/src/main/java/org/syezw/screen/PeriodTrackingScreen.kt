@@ -143,7 +143,7 @@ fun PeriodTrackingScreen(viewModel: PeriodViewModel, modifier: Modifier = Modifi
                         onEditNotesClick = { recordToEditNotes = record },
                         onDelete = { viewModel.deleteRecord(record) }
                     )
-                    Divider()
+                    HorizontalDivider()
                 }
             }
         }
@@ -229,7 +229,7 @@ fun StatisticsCard(
                     )
                 }
             }
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
@@ -251,7 +251,7 @@ fun StatisticsCard(
                     )
                 }
             }
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             OvulationInfo(
                 prediction = ovulationPrediction,
                 predictedNextPeriodDate = predictedNextPeriodDate

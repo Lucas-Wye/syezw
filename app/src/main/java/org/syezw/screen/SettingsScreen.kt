@@ -32,6 +32,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,8 +52,20 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    settingsViewModel: SettingsViewModel, modifier: Modifier = Modifier
+    settingsViewModel: SettingsViewModel,
+    modifier: Modifier = Modifier,
+    onOpenTradeRecord: () -> Unit = {}
 ) {
+    var showTradeSettings by rememberSaveable { mutableStateOf(false) }
+    if (showTradeSettings) {
+        TradeSettingsScreen(
+            settingsViewModel = settingsViewModel,
+            onBack = { showTradeSettings = false },
+            modifier = modifier
+        )
+        return
+    }
+
     // 1. 为 collectAsState 提供初始值
     val currentAuthor by settingsViewModel.defaultAuthor.collectAsState(initial = "")
     val currentDateTogether by settingsViewModel.dateTogether.collectAsState(initial = "")
@@ -393,8 +406,28 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = dateError == null // Disable button if format is invalid
             ) {
-                Text("Save Settings")
+                Text("保存设置")
             }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = { showTradeSettings = true },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("交易设置")
+                }
+                OutlinedButton(
+                    onClick = onOpenTradeRecord,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("交易记录")
+                }
+            }
+
         }
     }
 

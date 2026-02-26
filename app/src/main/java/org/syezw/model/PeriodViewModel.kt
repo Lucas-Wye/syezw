@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.syezw.data.Converters
 import org.syezw.data.PeriodDao
+import org.syezw.data.PeriodRecordImport
 import java.io.BufferedReader
 import java.io.FileOutputStream
 import java.io.InputStreamReader
@@ -226,8 +227,8 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
                     return@launch
                 }
 
-                val type: Type = object : TypeToken<List<PeriodRecord>>() {}.type
-                val importedRecords: List<PeriodRecord> = gson.fromJson(jsonString.toString(), type)
+                val type: Type = object : TypeToken<List<PeriodRecordImport>>() {}.type
+                val importedRecords: List<PeriodRecordImport> = gson.fromJson(jsonString.toString(), type)
 
                 if (importedRecords.isEmpty()) {
                     withContext(Dispatchers.Main) {
@@ -236,8 +237,9 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
                     return@launch
                 }
 
-                // Merge logic: upsertAll will update existing records with same startDate and insert new ones
-                periodDao.upsertAll(importedRecords)
+                // Convert import records to PeriodRecord and upsert
+                val validRecords = importedRecords.mapNotNull { it.toPeriodRecord() }
+                periodDao.upsertAll(validRecords)
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(

@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.syezw.data.Diary
 import org.syezw.data.DiaryDao
+import org.syezw.data.DiaryImport
 import org.syezw.preference.SettingsManager
 import org.syezw.util.DIARY_IMAGES_FOLDER
 import org.syezw.util.normalizeDiaryImageName
@@ -132,8 +133,8 @@ class DiaryViewModel(
                     return@launch
                 }
 
-                val listType: Type = object : TypeToken<List<Diary>>() {}.type
-                val importedDiaries: List<Diary> = gson.fromJson(jsonString.toString(), listType)
+                val listType: Type = object : TypeToken<List<DiaryImport>>() {}.type
+                val importedDiaries: List<DiaryImport> = gson.fromJson(jsonString.toString(), listType)
 
                 if (importedDiaries.isEmpty()) {
                     withContext(Dispatchers.Main) {
@@ -153,24 +154,16 @@ class DiaryViewModel(
                 var updatedEntriesCount = 0 // If you decide to update instead of just skip
 
                 for (importedDiary in importedDiaries) {
-                    // Example: check by content and timestamp.
-                    // You might want to use a more robust unique identifier if available from the source,
-                    // or define "sameness" based on your needs.
-                    // If your Diary entity has a unique 'uuid' field that's generated on creation
-                    // and included in the export, that would be ideal for matching.
-                    // For now, let's assume if content AND timestamp match, it's a duplicate.
-                    // Note: IDs from the JSON might clash if they are auto-generated.
-                    // It's safer to insert them as new entries and let Room generate new IDs,
-                    // UNLESS the IDs are globally unique (like UUIDs) and you want to preserve them.
-
+                    // Convert to Diary with proper defaults
+                    val diary = importedDiary.toDiary()
+                    
+                    // Check for duplicates by content and timestamp
                     val isDuplicate = existingDiaries.any { existing ->
-                        existing.content == importedDiary.content && existing.timestamp == importedDiary.timestamp
-                        // Add other fields for duplicate check if necessary, e.g., existing.location == importedDiary.location
+                        existing.content == diary.content && existing.timestamp == diary.timestamp
                     }
 
                     if (!isDuplicate) {
-                        // Insert as a new entry, clearing the ID so Room generates a new one.
-                        diaryDao.insert(importedDiary.copy(id = 0))
+                        diaryDao.insert(diary)
                         newEntriesCount++
                     }
                     // Optional: If you want to update existing entries based on some criteria
