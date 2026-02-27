@@ -16,6 +16,14 @@
 <color name="trade_text_tertiary">#FF999999</color>
 <color name="trade_divider">#FFEBEBEB</color>
 <color name="trade_red">#FFE53935</color>
-<color name="trade_green">#FF2E7D32</color>
+<color name="trade_green">#FF07ae4c</color>
 <color name="trade_background">#FFF4F6FA</color>
+<!-- #097c25
+#08C992
+#009900
+#33ff33
+#00ff00
+#07ae4c
+#00b800 -->
 </resources>
+

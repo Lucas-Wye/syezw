@@ -37,8 +37,6 @@ object Utils {
             return true
         } else if (target % 100L == 0L) {
             return true
-        } else if (target % 365L == 0L) {
-            return true
         } else {
             return false
         }
