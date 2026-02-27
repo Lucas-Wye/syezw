@@ -118,6 +118,13 @@ fun TradeRecordScreen(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val changePercent = tradeState.stockChangePercent
+                            .replace("%", "").replace(",", "").trim().toDoubleOrNull() ?: 0.0
+                        val priceColor = when {
+                            changePercent < 0 -> colorResource(id = org.syezw.R.color.trade_green)
+                            changePercent > 0 -> colorResource(id = org.syezw.R.color.trade_red)
+                            else -> colorResource(id = org.syezw.R.color.trade_text_primary)
+                        }
                         Text(
                             text = tradeState.stockName,
                             fontSize = 16.sp,
@@ -135,14 +142,14 @@ fun TradeRecordScreen(
                             text = tradeState.stockPrice,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
-                            color = colorResource(id = org.syezw.R.color.trade_red)
+                            color = priceColor
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = formatSignedPercent(tradeState.stockChangePercent),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
-                            color = colorResource(id = org.syezw.R.color.trade_red)
+                            color = priceColor
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         Icon(
@@ -192,6 +199,13 @@ fun TradeRecordScreen(
                         val profitColor =
                             if (profitValue.isNegative) colorResource(id = org.syezw.R.color.trade_green)
                             else colorResource(id = org.syezw.R.color.trade_red)
+                        val profitPercent = tradeState.referenceProfitPercent
+                            .replace("%", "").replace(",", "").trim().toDoubleOrNull() ?: 0.0
+                        val profitPercentColor = when {
+                            profitPercent < 0 -> colorResource(id = org.syezw.R.color.trade_green)
+                            profitPercent > 0 -> colorResource(id = org.syezw.R.color.trade_red)
+                            else -> colorResource(id = org.syezw.R.color.trade_text_primary)
+                        }
                         Text(
                             text = profitValue.text,
                             fontSize = 26.sp,
@@ -204,7 +218,7 @@ fun TradeRecordScreen(
                             text = formatSignedPercent(tradeState.referenceProfitPercent),
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Medium,
-                            color = colorResource(id = org.syezw.R.color.trade_text_primary)
+                            color = profitPercentColor
                         )
                     }
                 }
@@ -279,33 +293,88 @@ private fun TradeTabRow(
     onTabChange: (TradeTab) -> Unit
 ) {
     Surface(color = Color.White, tonalElevation = 0.dp, shadowElevation = 0.dp) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButtonLabel(
-                text = "历史交易",
-                selected = currentTab == TradeTab.HISTORY,
-                onClick = { onTabChange(TradeTab.HISTORY) }
-            )
-            TextButtonLabel(
-                text = "当日交易",
-                selected = currentTab == TradeTab.DAY,
-                onClick = { onTabChange(TradeTab.DAY) }
-            )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TextButtonLabel(
+                        text = "历史交易",
+                        selected = currentTab == TradeTab.HISTORY,
+                        onClick = { onTabChange(TradeTab.HISTORY) }
+                    )
+                }
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TextButtonLabel(
+                        text = "当日交易",
+                        selected = currentTab == TradeTab.DAY,
+                        onClick = { onTabChange(TradeTab.DAY) }
+                    )
+                }
+            }
+            // 指示线容器
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (currentTab == TradeTab.HISTORY) {
+                        Box(
+                            modifier = Modifier
+                                .width(18.dp)
+                                .height(2.dp)
+                                .background(colorResource(id = org.syezw.R.color.trade_red))
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (currentTab == TradeTab.DAY) {
+                        Box(
+                            modifier = Modifier
+                                .width(18.dp)
+                                .height(2.dp)
+                                .background(colorResource(id = org.syezw.R.color.trade_red))
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun TextButtonLabel(text: String, selected: Boolean, onClick: () -> Unit) {
-    TextButton(onClick = onClick) {
+private fun TextButtonLabel(
+    text: String, 
+    selected: Boolean, 
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier
+    ) {
         Text(
             text = text,
             fontSize = 16.sp,
-            // fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) colorResource(id = org.syezw.R.color.trade_red) else MaterialTheme.colorScheme.onSurfaceVariant            
+            color = if (selected) colorResource(id = org.syezw.R.color.trade_red) else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

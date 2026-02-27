@@ -169,7 +169,6 @@ private fun TradeTypeDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = modifier
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth()
         )
         ExposedDropdownMenu(
             expanded = expanded,
