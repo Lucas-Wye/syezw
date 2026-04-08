@@ -88,17 +88,37 @@ fun OurLove(
 
             // 文字内容
             Text(
-                text = "在一起已经${(days ?: 0).toString()}天啦！",
+                text = "在一起已经${((days ?: 0) - 1).toString()}天啦！",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = DayColor,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
-            if (isSpecial((days ?: 0) + 1)) {
+            if (isSpecial((days ?: 0))) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = "♡今天是第${((days ?: 0) + 1).toString()}天哦(｡･ω･｡)ﾉ",
+                    text = "♡今天是第${((days ?: 0)).toString()}天哦(｡･ω･｡)ﾉ",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = LoveColor,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            val today = java.time.LocalDate.now()
+            val todayYear = today.year
+            val todayMonth = today.monthValue
+            val todayDay = today.dayOfMonth
+            val components = org.syezw.Utils.extractDateComponents(dateTogether)
+            val targetMonth = components?.second ?: 4
+            val targetDay = components?.third ?: 6
+            val num_year = todayYear - (components?.first ?: 2025)
+            
+            if (todayMonth == targetMonth && todayDay == targetDay) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "♡${((num_year ?: 0)).toString()}周日纪念日，爱猪！",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = LoveColor,
