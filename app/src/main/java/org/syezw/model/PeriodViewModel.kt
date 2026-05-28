@@ -42,7 +42,8 @@ data class PeriodRecord(
     @PrimaryKey val startDate: LocalDate,
     val endDate: LocalDate,
     val notes: String? = null,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val synced: Boolean = false
 ) {
     val realDuration: Long
         get() = ChronoUnit.DAYS.between(startDate, endDate) + 1

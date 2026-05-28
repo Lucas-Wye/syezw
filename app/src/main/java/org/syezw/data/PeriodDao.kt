@@ -25,6 +25,12 @@ interface PeriodDao {
     @Upsert
     suspend fun upsertAll(records: List<PeriodRecord>)
 
+    @Query("SELECT * FROM period_records WHERE synced = 0 ORDER BY startDate ASC")
+    suspend fun getUnsyncedList(): List<PeriodRecord>
+
+    @Query("UPDATE period_records SET synced = 1 WHERE startDate IN (:startDates)")
+    suspend fun markAsSynced(startDates: List<String>)
+
     // 使用 @Transaction 注解，确保这两个操作在同一个事务中完成
     @Transaction
     suspend fun clearAndInsert(records: List<PeriodRecord>) {

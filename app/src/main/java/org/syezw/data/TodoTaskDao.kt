@@ -30,4 +30,10 @@ interface TodoTaskDao {
 
     @Query("SELECT * FROM todo_list WHERE id = :taskId")
     fun getTaskById(taskId: Int): Flow<TodoTask?>
+
+    @Query("SELECT * FROM todo_list WHERE synced = 0 ORDER BY createdAt ASC")
+    suspend fun getUnsyncedList(): List<TodoTask>
+
+    @Query("UPDATE todo_list SET synced = 1 WHERE id IN (:ids)")
+    suspend fun markAsSynced(ids: List<Int>)
 }

@@ -39,6 +39,17 @@ pub struct PeriodSyncItem {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct GpsSyncItem {
+    pub uuid: String,
+    pub author: String,
+    pub timestamp: i64,
+    pub end_timestamp: Option<i64>,
+    pub point_count: Option<i32>,
+    pub payload: EncryptedBlob,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DiaryImageSyncItem {
     pub file_name: String,
     pub diary_uuid: String,
@@ -56,10 +67,16 @@ pub struct SyncUploadRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GpsUploadRequest {
+    pub gps: Vec<GpsSyncItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SyncCounts {
     pub diaries: usize,
     pub todos: usize,
     pub periods: usize,
+    pub gps: usize,
     pub images: usize,
 }
 

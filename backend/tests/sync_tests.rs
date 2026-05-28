@@ -7,8 +7,8 @@ use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 use syezw_sync_backend::db::EnvConfig;
 use syezw_sync_backend::models::{
-    DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, PeriodSyncItem, SyncDownloadEnvelope,
-    SyncDownloadRequest, SyncUploadRequest, TodoSyncItem,
+    DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, GpsSyncItem, PeriodSyncItem,
+    SyncDownloadEnvelope, SyncDownloadRequest, SyncUploadRequest, TodoSyncItem,
 };
 
 fn log_db_info(label: &str, host: &str, port: i32, db: &str, user: &str) {
@@ -75,6 +75,7 @@ async fn upload_then_download_round_trip() {
         .as_nanos();
     let diary_uuid = format!("d1_{}", suffix);
     let todo_uuid = format!("t1_{}", suffix);
+    let gps_uuid = format!("g1_{}", suffix);
 
     let env_cfg = EnvConfig::from_env();
     let app = test::init_service(
@@ -122,6 +123,15 @@ async fn upload_then_download_round_trip() {
             start_date: "2025-01-01".to_string(),
             end_date: "2025-01-05".to_string(),
             updated_at: 5,
+            payload: EncryptedBlob {
+                iv: "iv".to_string(),
+                data: "data".to_string(),
+            },
+        }],
+        gps: vec![GpsSyncItem {
+            uuid: gps_uuid.clone(),
+            author: "a".to_string(),
+            timestamp: 7,
             payload: EncryptedBlob {
                 iv: "iv".to_string(),
                 data: "data".to_string(),
@@ -279,6 +289,7 @@ async fn upload_with_image_hash_dedup_and_fetch() {
         }],
         todos: vec![],
         periods: vec![],
+        gps: vec![],
         images: vec![DiaryImageSyncItem {
             file_name: "img.jpg".to_string(),
             diary_uuid: diary_uuid.clone(),

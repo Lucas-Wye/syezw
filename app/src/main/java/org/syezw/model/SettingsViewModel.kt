@@ -3,7 +3,9 @@ package org.syezw.model
 import android.app.Application
 import android.content.ContentValues
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -15,7 +17,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
@@ -37,6 +41,7 @@ import org.syezw.data.Diary
 import org.syezw.data.TodoTask
 import org.syezw.model.PeriodRecord
 import org.syezw.worker.BackupWorker
+import org.syezw.worker.GpsWorker
 import org.syezw.util.DIARY_IMAGES_FOLDER
 import org.syezw.util.diaryImagesRelativePath
 import org.syezw.util.resolvePathFromDownloadsRelativePath
@@ -47,13 +52,14 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import android.provider.MediaStore
 import android.os.Environment
+import java.io.IOException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
 import org.syezw.sync.DiaryImageSyncItem
 import org.syezw.sync.DiaryImageRefItem
 import org.syezw.sync.DiaryPayload
@@ -67,6 +73,8 @@ import org.syezw.sync.ImageUploadRequest
 import org.syezw.sync.PeriodPayload
 import org.syezw.sync.PeriodSyncItem
 import org.syezw.sync.PeriodMeta
+import org.syezw.sync.GpsSyncItem
+import org.syezw.sync.buildGpsSyncItem
 import org.syezw.sync.SyncCounts
 import org.syezw.sync.SyncDownloadRequest
 import org.syezw.sync.SyncDownloadEnvelope
@@ -104,6 +112,7 @@ data class SyncCountSummary(
     val diaries: Int = 0,
     val todos: Int = 0,
     val periods: Int = 0,
+    val gps: Int = 0,
     val imageUploads: Int = 0,
     val imageDownloads: Int = 0
 )
@@ -113,6 +122,15 @@ data class SyncProgressState(
     val percent: Int = 0,
     val message: String = ""
 )
+
+object GpsPrefKeys {
+    val GPS_ENABLED = booleanPreferencesKey("gps_enabled")
+    val GPS_PRIORITY = stringPreferencesKey("gps_priority")
+    val GPS_INTERVAL_MS = stringPreferencesKey("gps_interval_ms")
+    val GPS_FASTEST_INTERVAL_MS = stringPreferencesKey("gps_fastest_interval_ms")
+    val GPS_MODE = stringPreferencesKey("gps_mode")
+    val GPS_WORKMANAGER_START_TIME = stringPreferencesKey("gps_workmanager_start_time")
+}
 
 class SettingsViewModel(
     private val application: Application,
@@ -146,6 +164,12 @@ class SettingsViewModel(
         val LAST_UPLOAD_FAILED = booleanPreferencesKey("last_upload_failed")
         val LAST_DOWNLOAD_FAILED = booleanPreferencesKey("last_download_failed")
         val SYNC_LOGS = stringPreferencesKey("sync_logs_json")
+        val GPS_ENABLED = booleanPreferencesKey("gps_enabled")
+        val GPS_PRIORITY = stringPreferencesKey("gps_priority")
+        val GPS_INTERVAL_MS = stringPreferencesKey("gps_interval_ms")
+        val GPS_FASTEST_INTERVAL_MS = stringPreferencesKey("gps_fastest_interval_ms")
+        val GPS_MODE = stringPreferencesKey("gps_mode") // "foreground" or "workmanager"
+        val GPS_WORKMANAGER_START_TIME = stringPreferencesKey("gps_workmanager_start_time")
     }
     private val minUploadIntervalMs = 30_000L
     private val maxSyncLogs = 200
@@ -231,6 +255,30 @@ class SettingsViewModel(
         preferences[PreferencesKeys.LOVE_BG_ENABLED] ?: false
     }
 
+    val gpsEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_ENABLED] ?: false
+    }
+
+    val gpsPriority: Flow<String> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_PRIORITY] ?: "balanced"
+    }
+
+    val gpsIntervalMs: Flow<Long> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_INTERVAL_MS]?.toLongOrNull() ?: 10_000L
+    }
+
+    val gpsFastestIntervalMs: Flow<Long> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS]?.toLongOrNull() ?: 5_000L
+    }
+
+    val gpsMode: Flow<String> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_MODE] ?: "foreground"
+    }
+
+    val gpsWorkmanagerStartTime: Flow<Long> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_WORKMANAGER_START_TIME]?.toLongOrNull() ?: 0L
+    }
+
     val remoteApiBaseUrl: Flow<String> = dataStore.data.map { preferences ->
         preferences[PreferencesKeys.REMOTE_API_BASE_URL] ?: ""
     }
@@ -264,6 +312,187 @@ class SettingsViewModel(
     suspend fun setLoveBgEnabled(enabled: Boolean) {
         dataStore.edit { settings ->
             settings[PreferencesKeys.LOVE_BG_ENABLED] = enabled
+        }
+    }
+
+    fun setGpsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_ENABLED] = enabled
+            }
+        }
+    }
+
+    fun setGpsPriority(priority: String) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_PRIORITY] = priority
+            }
+        }
+    }
+
+    fun setGpsIntervalMs(intervalMs: Long) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_INTERVAL_MS] = intervalMs.toString()
+            }
+        }
+    }
+
+    fun setGpsFastestIntervalMs(intervalMs: Long) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS] = intervalMs.toString()
+            }
+        }
+    }
+
+    fun setGpsMode(mode: String) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_MODE] = mode
+            }
+        }
+    }
+
+    fun setGpsWorkmanagerStartTime(timestamp: Long) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_WORKMANAGER_START_TIME] = timestamp.toString()
+            }
+        }
+    }
+
+    fun disableGpsAfterOneWeek() {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_ENABLED] = false
+                settings.remove(GpsPrefKeys.GPS_WORKMANAGER_START_TIME)
+            }
+        }
+    }
+
+    fun startGpsWorkmanager() {
+        viewModelScope.launch {
+            // Record start time
+            setGpsWorkmanagerStartTime(System.currentTimeMillis())
+
+            // Schedule periodic GPS work every 15 minutes
+            val gpsWorkRequest = PeriodicWorkRequestBuilder<GpsWorker>(
+                15, TimeUnit.MINUTES
+            ).build()
+
+            WorkManager.getInstance(application).enqueueUniquePeriodicWork(
+                GpsWorker.WORKER_TAG,
+                ExistingPeriodicWorkPolicy.KEEP,
+                gpsWorkRequest
+            )
+
+            // Log.d("GpsWorkManager", "GPS WorkManager started")
+        }
+    }
+
+    fun stopGpsWorkmanager() {
+        viewModelScope.launch {
+            WorkManager.getInstance(application).cancelUniqueWork(GpsWorker.WORKER_TAG)
+            dataStore.edit { settings ->
+                settings.remove(GpsPrefKeys.GPS_WORKMANAGER_START_TIME)
+            }
+            // Log.d("GpsWorkManager", "GPS WorkManager stopped")
+        }
+    }
+
+    fun checkAndDisableGpsIfExpired() {
+        viewModelScope.launch {
+            try {
+                val startTime = gpsWorkmanagerStartTime.first()
+                if (startTime > 0) {
+                    val currentTime = System.currentTimeMillis()
+                    val elapsedTime = currentTime - startTime
+                    val oneWeekMs = 7 * 24 * 60 * 60 * 1000L
+
+                    if (elapsedTime > oneWeekMs) {
+                        // Log.d("GpsWorkManager", "GPS WorkManager expired, disabling")
+                        disableGpsAfterOneWeek()
+                        stopGpsWorkmanager()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("GpsWorkManager", "Error checking GPS expiration", e)
+            }
+        }
+    }
+
+    fun exportGpsData() {
+        viewModelScope.launch(Dispatchers.IO) {
+            suspend fun showToast(message: String, long: Boolean = true) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        application,
+                        message,
+                        if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
+            val locations = try {
+                database.gpsLocationDao().getAllList()
+            } catch (e: SQLiteException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            } catch (e: IllegalStateException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            }
+            if (locations.isEmpty()) {
+                showToast("暂无GPS数据可导出", long = false)
+                return@launch
+            }
+            val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+            val fileName = "syezw_gps_${sdf.format(java.util.Date())}.csv"
+            val lineSdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+            val sb = StringBuilder()
+            sb.appendLine("latitude,longitude,accuracy,altitude,speed,timestamp,endtime,author")
+            for (loc in locations) {
+                val ts = lineSdf.format(java.util.Date(loc.timestamp))
+                val endTs = loc.endTimestamp?.let { lineSdf.format(java.util.Date(it)) } ?: ""
+                sb.appendLine(
+                    "${loc.latitude},${loc.longitude},${loc.accuracy ?: ""},${loc.altitude ?: ""},${loc.speed ?: ""},${ts},${endTs},${loc.author}"
+                )
+            }
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, "text/csv")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            }
+            val uri = try {
+                application.contentResolver.insert(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    values
+                )
+            } catch (e: SecurityException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            }
+            if (uri == null) {
+                showToast("导出失败：无法创建文件")
+                return@launch
+            }
+            try {
+                application.contentResolver.openOutputStream(uri)?.use { output ->
+                    output.write(sb.toString().toByteArray(Charsets.UTF_8))
+                } ?: run {
+                    showToast("导出失败：无法写入文件")
+                    return@launch
+                }
+            } catch (e: IOException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            } catch (e: SecurityException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            }
+            showToast("GPS数据已导出到下载目录")
         }
     }
 
@@ -533,13 +762,11 @@ class SettingsViewModel(
                 appendSyncLog("upload", true, "开始上传")
                 val key = deriveAesKeyFromPassphrase(passphrase)
                 setUploadProgress(true, 10, "检查差异")
-                val metaResponse = fetchRemoteMeta(apiBaseUrl, apiKey)
-                val remoteDiaryMap = metaResponse?.diaries?.associateBy({ it.uuid }, { it.updatedAt }) ?: emptyMap()
-                val remoteTodoMap = metaResponse?.todos?.associateBy({ it.uuid }, { it.updatedAt }) ?: emptyMap()
-                val remotePeriodMap = metaResponse?.periods?.associateBy({ it.startDate }, { it.updatedAt }) ?: emptyMap()
-
-                val diaries = database.diaryDao().getAllEntriesList()
-                    .filter { it.updatedAt > (remoteDiaryMap[it.uuid] ?: -1L) }
+                
+                // 获取所有未同步的数据
+                val diaryIds = mutableListOf<Int>()
+                val diaries = database.diaryDao().getUnsyncedList()
+                    .also { diaryIds.addAll(it.map { d -> d.id }) }
                     .map { diary ->
                     val payload = DiaryPayload(
                         content = diary.content,
@@ -557,8 +784,9 @@ class SettingsViewModel(
                     )
                 }
 
-                val todos = database.todoTaskDao().getAllTasksList()
-                    .filter { it.updatedAt > (remoteTodoMap[it.uuid] ?: -1L) }
+                val todoIds = mutableListOf<Int>()
+                val todos = database.todoTaskDao().getUnsyncedList()
+                    .also { todoIds.addAll(it.map { t -> t.id }) }
                     .map { task ->
                     val payload = TodoPayload(name = task.name)
                     val payloadJson = gson.toJson(payload)
@@ -573,8 +801,9 @@ class SettingsViewModel(
                     )
                 }
 
-                val periods = database.periodDao().getAllRecords().first()
-                    .filter { it.updatedAt > (remotePeriodMap[it.startDate.toString()] ?: -1L) }
+                val periodStartDates = mutableListOf<String>()
+                val periods = database.periodDao().getUnsyncedList()
+                    .also { periodStartDates.addAll(it.map { p -> p.startDate.toString() }) }
                     .map { record ->
                     val payload = PeriodPayload(notes = record.notes)
                     val payloadJson = gson.toJson(payload)
@@ -586,9 +815,14 @@ class SettingsViewModel(
                     )
                 }
 
+                val fallbackAuthor = defaultAuthor.first()
+                // GPS is excluded from the combined main upload. Use the separate "Upload GPS Data to Remote" button.
+                val unsyncedLocations = emptyList<Any>()
+                val gpsItems = emptyList<GpsSyncItem>()
+
                 val images = emptyList<DiaryImageSyncItem>()
 
-                val totalTextItems = diaries.size + todos.size + periods.size
+                val totalTextItems = diaries.size + todos.size + periods.size + gpsItems.size
                 var processedTextItems = 0
 
                 fun updateTextProgress() {
@@ -613,6 +847,10 @@ class SettingsViewModel(
                     processedTextItems += batch.size
                     updateTextProgress()
                 }
+                // Mark diaries as synced after ALL diary batches succeed
+                if (diaryIds.isNotEmpty()) {
+                    database.diaryDao().markAsSynced(diaryIds)
+                }
 
                 val todoBatches = chunkBySize(todos, maxUploadBatchBytes)
                 for (batch in todoBatches) {
@@ -628,6 +866,10 @@ class SettingsViewModel(
                     }
                     processedTextItems += batch.size
                     updateTextProgress()
+                }
+                // Mark todos as synced after ALL todo batches succeed
+                if (todoIds.isNotEmpty()) {
+                    database.todoTaskDao().markAsSynced(todoIds)
                 }
 
                 val periodBatches = chunkBySize(periods, maxUploadBatchBytes)
@@ -645,19 +887,26 @@ class SettingsViewModel(
                     processedTextItems += batch.size
                     updateTextProgress()
                 }
+                // Mark periods as synced after ALL period batches succeed
+                if (periodStartDates.isNotEmpty()) {
+                    database.periodDao().markAsSynced(periodStartDates)
+                }
 
                 val imageUploadCount = syncImageUploads(key, apiKey) { done, total ->
                     val percent = if (total == 0) 100 else 80 + (done * 20 / total)
                     setUploadProgress(true, percent, "上传图片 ${done}/${total}")
                 }
+                
+                // GPS is not uploaded in the main upload flow; gps count is 0 here
                 val summary = SyncCountSummary(
                     diaries = diaries.size,
                     todos = todos.size,
                     periods = periods.size,
+                    gps = 0,
                     imageUploads = imageUploadCount
                 )
                 _lastUploadSummary.value =
-                    "上传完成：diary ${summary.diaries}，todo ${summary.todos}，period ${summary.periods}，image ${summary.imageUploads}"
+                    "上传完成：diary ${summary.diaries}，todo ${summary.todos}，period ${summary.periods}，gps ${summary.gps}，image ${summary.imageUploads}"
                 appendSyncLog(
                     "upload",
                     true,
@@ -683,6 +932,82 @@ class SettingsViewModel(
                 dataStore.edit { settings ->
                     settings[PreferencesKeys.LAST_UPLOAD_FAILED] = true
                 }
+                setUploadProgress(false, 0, "")
+            }
+        }
+    }
+
+    fun syncUploadGpsOnly() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (_uploadProgress.value.inProgress) return@launch
+                setUploadProgress(true, 0, "准备上传 GPS 数据")
+
+                val apiBaseUrl = remoteApiBaseUrl.first().trim()
+                val apiKey = remoteApiKey.first().trim()
+                val passphrase = aesPassphrase.first()
+                if (apiBaseUrl.isBlank() || passphrase.isBlank() || apiKey.isBlank()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(application, "请先配置远程地址、API Key和AES密钥", Toast.LENGTH_LONG).show()
+                    }
+                    appendSyncLog("upload_gps", false, "缺少远程地址或API Key或AES密钥")
+                    setUploadProgress(false, 0, "")
+                    return@launch
+                }
+
+                appendSyncLog("upload_gps", true, "开始上传 GPS 数据")
+                val key = deriveAesKeyFromPassphrase(passphrase)
+                setUploadProgress(true, 10, "检查差异")
+
+                val fallbackAuthor = defaultAuthor.first()
+                val unsyncedLocations = database.gpsLocationDao().getUnsyncedList()
+                if (unsyncedLocations.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(application, "暂无未同步的 GPS 数据", Toast.LENGTH_SHORT).show()
+                    }
+                    setUploadProgress(false, 100, "无 GPS 数据需要上传")
+                    return@launch
+                }
+
+                val gpsItems = unsyncedLocations.map { location ->
+                    buildGpsSyncItem(location, gson, key, fallbackAuthor)
+                }
+
+                val total = gpsItems.size
+                var processed = 0
+                val batches = chunkBySize(gpsItems, maxUploadBatchBytes)
+                for (batch in batches) {
+                    setUploadProgress(true, 10 + (processed * 70 / maxOf(1, total)), "上传 GPS ${processed}/${total}")
+                    val resp = sendGpsUploadBatch(apiBaseUrl, apiKey, batch)
+                    if (resp == null || !resp.ok) {
+                        val msg = resp?.message ?: "上传失败"
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(application, msg, Toast.LENGTH_LONG).show()
+                        }
+                        appendSyncLog("upload_gps", false, msg)
+                        setUploadProgress(false, 0, "")
+                        return@launch
+                    }
+                    processed += batch.size
+                }
+
+                // Mark gps locations as synced
+                database.gpsLocationDao().markAsSynced(unsyncedLocations.map { it.id })
+
+                appendSyncLog("upload_gps", true, "GPS 上传完成，共 ${total} 条")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(application, "GPS 上传完成: ${total} 条", Toast.LENGTH_LONG).show()
+                }
+                setUploadProgress(false, 100, "")
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                val isTimeout = e is java.net.SocketTimeoutException
+                val message = if (isTimeout) "上传超时，服务器可能已收到" else "GPS 上传失败: ${e.message}"
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(application, message, Toast.LENGTH_LONG).show()
+                }
+                appendSyncLog("upload_gps", false, message)
                 setUploadProgress(false, 0, "")
             }
         }
@@ -781,6 +1106,7 @@ class SettingsViewModel(
                     diaries = response.diaries.size,
                     todos = response.todos.size,
                     periods = response.periods.size,
+                    gps = 0,
                     imageDownloads = imageDownloadCount
                 )
                 _lastDownloadSummary.value =
@@ -1041,6 +1367,9 @@ class SettingsViewModel(
         var uploadedCount = 0
         val totalImages = imagesToUpload.size
         onProgress(0, totalImages)
+        
+        val uploadErrors = mutableListOf<String>()
+        
         // Batch image uploads to avoid huge single requests
         val imageBatches = chunkBySize(imagesToUpload, maxUploadBatchBytes)
         for (batch in imageBatches) {
@@ -1053,10 +1382,13 @@ class SettingsViewModel(
                 .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    appendSyncLog("image_upload", false, "图片上传失败: ${response.code}")
+                    val errorMsg = "图片上传失败: HTTP ${response.code}"
+                    appendSyncLog("image_upload", false, errorMsg)
+                    uploadErrors.add(errorMsg)
+                } else {
+                    uploadedCount += batch.size
                 }
             }
-            uploadedCount += batch.size
             onProgress(uploadedCount, totalImages)
         }
 
@@ -1070,10 +1402,19 @@ class SettingsViewModel(
                 .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    appendSyncLog("image_upload", false, "图片引用更新失败: ${response.code}")
+                    val errorMsg = "图片引用更新失败: HTTP ${response.code}"
+                    appendSyncLog("image_upload", false, errorMsg)
+                    uploadErrors.add(errorMsg)
                 }
             }
         }
+        
+        // Throw exception if any image uploads failed
+        if (uploadErrors.isNotEmpty()) {
+            val errorSummary = uploadErrors.joinToString("; ")
+            throw Exception("图片上传失败，数据已部分上传: $errorSummary")
+        }
+        
         return uploadedCount
     }
 
@@ -1185,13 +1526,45 @@ class SettingsViewModel(
                 parsed ?: SyncUploadResponse(
                     ok = false,
                     message = "上传失败: ${response.code}",
-                    counts = SyncCounts(0, 0, 0, 0)
+                    counts = SyncCounts(0, 0, 0, 0, 0)
                 )
             } else {
                 parsed ?: SyncUploadResponse(
                     ok = true,
                     message = "ok",
-                    counts = SyncCounts(diaries.size, todos.size, periods.size, images.size)
+                    counts = SyncCounts(diaries.size, todos.size, periods.size, 0, images.size)
+                )
+            }
+        }
+    }
+
+    private fun sendGpsUploadBatch(
+        apiBaseUrl: String,
+        apiKey: String,
+        gps: List<GpsSyncItem>
+    ): SyncUploadResponse? {
+        val requestBody = mapOf("gps" to gps)
+        val json = gson.toJson(requestBody)
+        val request = Request.Builder()
+            .url("${apiBaseUrl.trimEnd('/')}/sync/uploadGPS")
+            .addHeader("X-API-Key", apiKey)
+            .post(json.toRequestBody("application/json".toMediaType()))
+            .build()
+
+        return httpClient.newCall(request).execute().use { response ->
+            val body = response.body?.string() ?: ""
+            val parsed = runCatching { gson.fromJson(body, SyncUploadResponse::class.java) }.getOrNull()
+            if (!response.isSuccessful) {
+                parsed ?: SyncUploadResponse(
+                    ok = false,
+                    message = "上传失败: ${response.code}",
+                    counts = SyncCounts(0, 0, 0, 0, 0)
+                )
+            } else {
+                parsed ?: SyncUploadResponse(
+                    ok = true,
+                    message = "ok",
+                    counts = SyncCounts(0, 0, 0, gps.size, 0)
                 )
             }
         }

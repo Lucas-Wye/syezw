@@ -1,3 +1,4 @@
+use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use dotenvy::dotenv;
 use env_logger::Env;
@@ -6,7 +7,7 @@ use sqlx::postgres::PgPoolOptions;
 use syezw_sync_backend::db::{build_db_url, EnvConfig};
 use syezw_sync_backend::{
     image_fetch, image_hashes, image_refs, image_refs_upsert, image_upload, sync_download,
-    sync_upload, AppState,
+    sync_upload, sync_upload_gps, AppState,
 };
 
 #[actix_web::main]
@@ -23,16 +24,25 @@ async fn main() -> std::io::Result<()> {
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     info!("Starting server on {}", bind_addr);
 
+    let governor_conf = GovernorConfigBuilder::default()
+        // 限制2秒一次请求
+        .seconds_per_request(2)
+        .burst_size(10)
+        .finish()
+        .expect("failed to build governor config");
+
     HttpServer::new(move || {
         let json_cfg = web::JsonConfig::default().limit(50 * 1024 * 1024); // 50 MB limit for image uploads
         App::new()
             .wrap(Logger::default())
+            .wrap(Governor::new(&governor_conf))
             .app_data(json_cfg)
             .app_data(web::Data::new(AppState {
                 env: env.clone(),
                 pool: pool.clone(),
             }))
             .route("/sync/upload", web::post().to(sync_upload))
+            .route("/sync/uploadGPS", web::post().to(sync_upload_gps))
             .route("/sync/download", web::post().to(sync_download))
             .route("/sync/meta", web::post().to(syezw_sync_backend::sync_meta))
             .route("/images/fetch", web::post().to(image_fetch))

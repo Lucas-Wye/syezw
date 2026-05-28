@@ -1,12 +1,14 @@
 package org.syezw.screen
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,6 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -44,8 +48,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.pm.PackageManager
 import android.Manifest
+import android.content.Context
+import android.os.Build
+import android.widget.Toast
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.Priority
 import org.syezw.model.SettingsViewModel
+import org.syezw.service.LocationService
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -84,6 +93,12 @@ fun SettingsScreen(
     // 注意：isPeriodTrackingEnabled 是一个 StateFlow，它总是有初始值，所以这里不需要提供 initial 参数
     val isPeriodTrackingEnabled by settingsViewModel.isPeriodTrackingEnabled.collectAsState()
 
+    val gpsEnabled by settingsViewModel.gpsEnabled.collectAsState(initial = false)
+    val gpsPriority by settingsViewModel.gpsPriority.collectAsState(initial = "balanced")
+    val gpsIntervalMs by settingsViewModel.gpsIntervalMs.collectAsState(initial = 10_000L)
+    val gpsFastestIntervalMs by settingsViewModel.gpsFastestIntervalMs.collectAsState(initial = 5_000L)
+    val gpsMode by settingsViewModel.gpsMode.collectAsState(initial = "foreground")
+
     var authorInput by remember(currentAuthor) { mutableStateOf(currentAuthor) }
     var dateTogetherInput by remember(currentDateTogether) { mutableStateOf(currentDateTogether) }
     var dateError by remember { mutableStateOf<String?>(null) }
@@ -115,7 +130,6 @@ fun SettingsScreen(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri ->
             uri?.let {
-                // 获取持久化权限
                 context.contentResolver.takePersistableUriPermission(
                     it,
                     android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -126,6 +140,152 @@ fun SettingsScreen(
             }
         }
     )
+
+    fun hasLocationPermissions(): Boolean {
+        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return fine || coarse
+    }
+
+    fun isSystemLocationEnabled(): Boolean {
+        return try {
+            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                locationManager.isLocationEnabled
+            } else {
+                @Suppress("DEPRECATION")
+                locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
+                locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun hasNotificationPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    fun startGpsService() {
+        val priorityValue = when (gpsPriority) {
+            "high_accuracy" -> Priority.PRIORITY_HIGH_ACCURACY
+            "balanced" -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            "low_power" -> Priority.PRIORITY_LOW_POWER
+            "no_power" -> Priority.PRIORITY_PASSIVE
+            else -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+        }
+        LocationService.start(
+            context = context,
+            priority = priorityValue,
+            intervalMs = gpsIntervalMs,
+            fastestIntervalMs = gpsFastestIntervalMs,
+            author = currentAuthor
+        )
+        Toast.makeText(context, "GPS tracking started", Toast.LENGTH_SHORT).show()
+    }
+
+    fun stopGpsService() {
+        LocationService.stop(context)
+        Toast.makeText(context, "GPS tracking stopped", Toast.LENGTH_SHORT).show()
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { permissions ->
+            val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+            val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+            val backgroundGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                permissions[Manifest.permission.ACCESS_BACKGROUND_LOCATION] == true
+            } else {
+                true
+            }
+            if (fineGranted || coarseGranted) {
+                if (!backgroundGranted) {
+                    Toast.makeText(context, "Background location permission is recommended for GPS tracking", Toast.LENGTH_LONG).show()
+                }
+                startGpsService()
+            } else {
+                Toast.makeText(context, "Location permission is required for GPS tracking", Toast.LENGTH_LONG).show()
+            }
+        }
+    )
+
+    fun requestLocationPermissions() {
+        val permissions = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+        if (permissions.isNotEmpty()) {
+            locationPermissionLauncher.launch(permissions.toTypedArray())
+        } else {
+            startGpsService()
+        }
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                requestLocationPermissions()
+            } else {
+                Toast.makeText(context, "Notification permission is required for foreground service", Toast.LENGTH_LONG).show()
+            }
+        }
+    )
+
+    fun toggleGps(enabled: Boolean) {
+        settingsViewModel.setGpsEnabled(enabled)
+        if (enabled) {
+            if (!isSystemLocationEnabled()) {
+                Toast.makeText(context, "Please enable Location in system settings", Toast.LENGTH_LONG).show()
+                settingsViewModel.setGpsEnabled(false)
+                return
+            }
+            
+            when (gpsMode) {
+                "workmanager" -> {
+                    // For WorkManager mode, directly start without permission checks
+                    // (WorkManager will handle permissions)
+                    settingsViewModel.startGpsWorkmanager()
+                    Toast.makeText(context, "GPS WorkManager scheduled (15-min intervals, 1 week duration)", Toast.LENGTH_LONG).show()
+                }
+                else -> { // "foreground" mode (default)
+                    if (!hasNotificationPermission()) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            requestLocationPermissions()
+                        }
+                    } else if (!hasLocationPermissions()) {
+                        requestLocationPermissions()
+                    } else {
+                        startGpsService()
+                    }
+                }
+            }
+        } else {
+            when (gpsMode) {
+                "workmanager" -> {
+                    settingsViewModel.stopGpsWorkmanager()
+                    Toast.makeText(context, "GPS WorkManager stopped", Toast.LENGTH_SHORT).show()
+                }
+                else -> {
+                    stopGpsService()
+                }
+            }
+        }
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -197,29 +357,6 @@ fun SettingsScreen(
                 )
             }
 
-            // 添加周期记录功能的开关
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Enable Period Tracking",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Switch(
-                    checked = isPeriodTrackingEnabled,
-                    onCheckedChange = { isEnabled ->
-                        // 当开关状态改变时，立刻更新 ViewModel
-                        // 2. 在协程中调用挂起函数
-                        coroutineScope.launch {
-                            settingsViewModel.setPeriodTrackingEnabled(isEnabled)
-                        }
-                    }
-                )
-            }
 
             // 添加Love背景图片功能
             Text(
@@ -266,6 +403,199 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("移除背景图片")
+                }
+            }
+            
+            // 添加周期记录功能的开关
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Enable Period Tracking",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Switch(
+                    checked = isPeriodTrackingEnabled,
+                    onCheckedChange = { isEnabled ->
+                        // 当开关状态改变时，立刻更新 ViewModel
+                        // 2. 在协程中调用挂起函数
+                        coroutineScope.launch {
+                            settingsViewModel.setPeriodTrackingEnabled(isEnabled)
+                        }
+                    }
+                )
+            }
+
+            // GPS
+            Text(
+                text = "GPS Location Tracking",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "GPS Tracking Mode",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                var modeExpanded by remember { mutableStateOf(false) }
+                val modeLabel = when (gpsMode) {
+                    "workmanager" -> "WorkManager (15min)"
+                    else -> "Foreground Service"
+                }
+                Box {
+                    TextButton(onClick = { modeExpanded = true }) {
+                        Text(modeLabel)
+                    }
+                    DropdownMenu(
+                        expanded = modeExpanded,
+                        onDismissRequest = { modeExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Foreground Service") },
+                            onClick = {
+                                settingsViewModel.setGpsMode("foreground")
+                                modeExpanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("WorkManager (15min, 1 week)") },
+                            onClick = {
+                                settingsViewModel.setGpsMode("workmanager")
+                                modeExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Enable Background GPS",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Switch(
+                    checked = gpsEnabled,
+                    onCheckedChange = { enabled ->
+                        toggleGps(enabled)
+                    }
+                )
+            }
+            if (gpsEnabled) {
+                if (gpsMode == "foreground") {
+                    var priorityExpanded by remember { mutableStateOf(false) }
+                    val priorityLabel = when (gpsPriority) {
+                        "high_accuracy" -> "High Accuracy"
+                        "balanced" -> "Balanced Power"
+                        "low_power" -> "Low Power"
+                        "no_power" -> "No Power (Passive)"
+                        else -> "Balanced Power"
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Location Priority",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Box {
+                            TextButton(onClick = { priorityExpanded = true }) {
+                                Text(priorityLabel)
+                            }
+                            DropdownMenu(
+                                expanded = priorityExpanded,
+                                onDismissRequest = { priorityExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("High Accuracy") },
+                                    onClick = {
+                                        settingsViewModel.setGpsPriority("high_accuracy")
+                                        priorityExpanded = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Balanced Power") },
+                                    onClick = {
+                                        settingsViewModel.setGpsPriority("balanced")
+                                        priorityExpanded = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Low Power") },
+                                    onClick = {
+                                        settingsViewModel.setGpsPriority("low_power")
+                                        priorityExpanded = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("No Power (Passive)") },
+                                    onClick = {
+                                        settingsViewModel.setGpsPriority("no_power")
+                                        priorityExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    var intervalExpanded by remember { mutableStateOf(false) }
+                    val intervalLabel = when (gpsIntervalMs) {
+                            5_000L -> "5 seconds"
+                            10_000L -> "10 seconds"
+                            30_000L -> "30 seconds"
+                            60_000L -> "1 minute"
+                            300_000L -> "5 minutes"
+                            else -> "${gpsIntervalMs / 1000} seconds"
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Update Interval",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Box {
+                                TextButton(onClick = { intervalExpanded = true }) {
+                                    Text(intervalLabel)
+                                }
+                                DropdownMenu(
+                                    expanded = intervalExpanded,
+                                    onDismissRequest = { intervalExpanded = false }
+                                ) {
+                                    listOf(5_000L to "5 seconds", 10_000L to "10 seconds", 30_000L to "30 seconds", 60_000L to "1 minute", 300_000L to "5 minutes").forEach { (ms, label) ->
+                                        DropdownMenuItem(
+                                            text = { Text(label) },
+                                            onClick = {
+                                                settingsViewModel.setGpsIntervalMs(ms)
+                                                settingsViewModel.setGpsFastestIntervalMs(ms / 2)
+                                                intervalExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                } else {
+                    Text(
+                        text = "WorkManager Mode: Recording every 15 minutes for 1 week",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
@@ -358,19 +688,38 @@ fun SettingsScreen(
                 )
             }
 
-            OutlinedButton(
-                onClick = { settingsViewModel.exportSyncLogs() },
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("导出同步日志")
+                OutlinedButton(
+                    onClick = { settingsViewModel.exportSyncLogs() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("导出日志")
+                }
+                // 导出GPS
+                OutlinedButton(
+                    onClick = { settingsViewModel.exportGpsData() },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("导出GPS")
+                }
+                OutlinedButton(
+                    onClick = { coroutineScope.launch { settingsViewModel.syncUploadGpsOnly() } },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("上传GPS")
+                }
             }
 
+            // 检查本地的日记图片
             Text(
                 text = "Diary Image Check",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.fillMaxWidth()
             )
-
             OutlinedButton(
                 onClick = {
                     val permission = Manifest.permission.READ_MEDIA_IMAGES
@@ -388,7 +737,6 @@ fun SettingsScreen(
             ) {
                 Text(if (unusedImageState.isChecking) "检查中..." else "检查未使用图片")
             }
-
             Button(
                 onClick = {
                     if (dateError == null) { // Only save if format is valid
@@ -418,13 +766,13 @@ fun SettingsScreen(
                     onClick = { showTradeSettings = true },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("交易设置")
+                    Text("trade设置")
                 }
                 OutlinedButton(
                     onClick = onOpenTradeRecord,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("交易记录")
+                    Text("trade记录")
                 }
             }
 
