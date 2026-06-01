@@ -128,16 +128,7 @@ async fn upload_then_download_round_trip() {
                 data: "data".to_string(),
             },
         }],
-        gps: vec![GpsSyncItem {
-            uuid: gps_uuid.clone(),
-            author: "a".to_string(),
-            timestamp: 7,
-            payload: EncryptedBlob {
-                iv: "iv".to_string(),
-                data: "data".to_string(),
-            },
-        }],
-        images: vec![DiaryImageSyncItem {
+       images: vec![DiaryImageSyncItem {
             file_name: "img.jpg".to_string(),
             diary_uuid: diary_uuid.clone(),
             hash: "hash123".to_string(),
@@ -289,7 +280,6 @@ async fn upload_with_image_hash_dedup_and_fetch() {
         }],
         todos: vec![],
         periods: vec![],
-        gps: vec![],
         images: vec![DiaryImageSyncItem {
             file_name: "img.jpg".to_string(),
             diary_uuid: diary_uuid.clone(),
