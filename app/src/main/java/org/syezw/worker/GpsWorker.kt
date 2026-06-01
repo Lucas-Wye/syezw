@@ -17,9 +17,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.syezw.data.AppDatabase
-import org.syezw.data.GpsLocation
 import org.syezw.dataStore
-import org.syezw.util.GpsDistanceUtils
+import org.syezw.util.GpsLocationSaver
+import org.syezw.util.toGpsLocationSample
 import java.util.concurrent.TimeUnit
 
 class GpsWorker(
@@ -92,33 +92,7 @@ class GpsWorker(
 
     private suspend fun saveLocation(database: AppDatabase, location: Location, author: String) {
         try {
-            val lastLocation = database.gpsLocationDao().getLastLocation()
-            
-            if (lastLocation != null) {
-                val distance = GpsDistanceUtils.haversineDistanceMeters(
-                    lastLocation.latitude, lastLocation.longitude,
-                    location.latitude, location.longitude
-                )
-                if (distance < GpsDistanceUtils.DEFAULT_DISTANCE_THRESHOLD_M) {
-                    // Log.d(
-                    //     TAG,
-                    //     "Location change is less than ${GpsDistanceUtils.DEFAULT_DISTANCE_THRESHOLD_M}m (${distance}m), skipping save"
-                    // )
-                    return
-                }
-            }
-
-            val gpsLocation = GpsLocation(
-                latitude = location.latitude,
-                longitude = location.longitude,
-                accuracy = if (location.hasAccuracy()) location.accuracy else null,
-                altitude = if (location.hasAltitude()) location.altitude else null,
-                speed = if (location.hasSpeed()) location.speed else null,
-                timestamp = location.time,
-                endTimestamp = location.time,
-                author = author
-            )
-            database.gpsLocationDao().insert(gpsLocation)
+            GpsLocationSaver.saveLocation(database.gpsLocationDao(), location.toGpsLocationSample(), author)
             // Log.d(TAG, "Location saved successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save location", e)

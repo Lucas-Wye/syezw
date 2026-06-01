@@ -31,9 +31,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.syezw.MainActivity
 import org.syezw.data.AppDatabase
-import org.syezw.data.GpsLocation
 import org.syezw.dataStore
-import org.syezw.util.GpsDistanceUtils
+import org.syezw.util.GpsLocationSaver
+import org.syezw.util.toGpsLocationSample
 
 class LocationService : Service() {
 
@@ -298,33 +298,7 @@ class LocationService : Service() {
         }
         serviceScope.launch {
             try {
-                val lastLocation = db.gpsLocationDao().getLastLocation()
-
-                if (lastLocation != null) {
-                    val distance = GpsDistanceUtils.haversineDistanceMeters(
-                        lastLocation.latitude, lastLocation.longitude,
-                        location.latitude, location.longitude
-                    )
-                    if (distance < GpsDistanceUtils.DEFAULT_DISTANCE_THRESHOLD_M) {
-                        // Log.d(
-                        //     TAG,
-                        //     "Location change is less than ${GpsDistanceUtils.DEFAULT_DISTANCE_THRESHOLD_M}m (${distance}m), skipping save"
-                        // )
-                        return@launch
-                    }
-                }
-
-                val gpsLocation = GpsLocation(
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    accuracy = if (location.hasAccuracy()) location.accuracy else null,
-                    altitude = if (location.hasAltitude()) location.altitude else null,
-                    speed = if (location.hasSpeed()) location.speed else null,
-                    timestamp = location.time,
-                    endTimestamp = location.time,
-                    author = author
-                )
-                db.gpsLocationDao().insert(gpsLocation)
+                GpsLocationSaver.saveLocation(db.gpsLocationDao(), location.toGpsLocationSample(), author)
             } catch (e: SQLiteException) {
                 Log.e(TAG, "Failed to persist GPS location", e)
             }

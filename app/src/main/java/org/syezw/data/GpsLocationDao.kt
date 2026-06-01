@@ -38,4 +38,7 @@ interface GpsLocationDao {
 
     @Query("SELECT * FROM gps_locations ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastLocation(): GpsLocation?
+
+    @Query("UPDATE gps_locations SET endTimestamp = :endTime WHERE id = :id")
+    suspend fun updateEndTime(id: Long, endTime: Long)
 }
