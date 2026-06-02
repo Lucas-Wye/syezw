@@ -4,6 +4,10 @@ $env:http_proxy = "http://127.0.0.1:7897"
 $env:https_proxy = "http://127.0.0.1:7897"
 $env:JAVA_TOOL_OPTIONS='-DproxySet=true -DproxyHost=127.0.0.1 -DproxyPort=7897'
 
+set http_proxy=http://127.0.0.1:7897
+set https_proxy=http://127.0.0.1:7897
+set JAVA_TOOL_OPTIONS='-DproxySet=true -DproxyHost=127.0.0.1 -DproxyPort=7897'
+
 .\gradlew test
 .\gradlew compileDebugSources
 .\gradlew assembleDebug
