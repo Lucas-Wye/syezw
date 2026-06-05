@@ -241,7 +241,8 @@ class TodoViewModel(
                 completedAt = if (task.isCompleted && task.completedAt == null) System.currentTimeMillis()
                 else if (!task.isCompleted) null
                 else task.completedAt,
-                updatedAt = System.currentTimeMillis()
+                updatedAt = System.currentTimeMillis(),
+                synced = false
             )
             todoTaskDao.update(taskToUpdate)
             clearInputFields()
@@ -253,7 +254,8 @@ class TodoViewModel(
             val updatedTask = task.copy(
                 isCompleted = !task.isCompleted,
                 completedAt = if (!task.isCompleted) System.currentTimeMillis() else null,
-                updatedAt = System.currentTimeMillis()
+                updatedAt = System.currentTimeMillis(),
+                synced = false
             )
             todoTaskDao.update(updatedTask)
             // No need to clear input fields here typically, as it's a direct list item interaction

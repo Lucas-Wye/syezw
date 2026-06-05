@@ -565,7 +565,7 @@ class SettingsViewModel(
                         val existing = database.diaryDao().getAllEntriesList()
                         for (item in diaries) {
                             if (existing.none { it.content == item.content && it.timestamp == item.timestamp }) {
-                                database.diaryDao().insert(item.copy(id = 0))
+                                database.diaryDao().insert(item.copy(id = 0, synced = true))
                                 importedCount++
                             }
                         }
@@ -581,7 +581,7 @@ class SettingsViewModel(
                         val existing = database.todoTaskDao().getAllTasksList()
                         for (item in todos) {
                             if (existing.none { it.name == item.name && it.createdAt == item.createdAt }) {
-                                database.todoTaskDao().insert(item.copy(id = 0))
+                                database.todoTaskDao().insert(item.copy(id = 0, synced = true))
                                 importedCount++
                             }
                         }
@@ -594,7 +594,8 @@ class SettingsViewModel(
                     if (json.isNotEmpty()) {
                         val type = object : TypeToken<List<PeriodRecord>>() {}.type
                         val periods: List<PeriodRecord> = gson.fromJson(json, type)
-                        database.periodDao().upsertAll(periods)
+                        val updatedPeriods = periods.map { it.copy(synced = true) }
+                        database.periodDao().upsertAll(updatedPeriods)
                         importedCount += periods.size
                     }
                 }
@@ -982,7 +983,8 @@ class SettingsViewModel(
                     timestamp = item.timestamp,
                     updatedAt = item.updatedAt,
                     location = payload.location,
-                    imageUris = payload.imageUris
+                    imageUris = payload.imageUris,
+                    synced = true
                 )
                 if (existing == null) {
                     database.diaryDao().insert(updatedDiary)
@@ -1009,7 +1011,8 @@ class SettingsViewModel(
                     isCompleted = item.isCompleted,
                     createdAt = item.createdAt,
                     completedAt = item.completedAt,
-                    updatedAt = item.updatedAt
+                    updatedAt = item.updatedAt,
+                    synced = true
                 )
                 if (existing == null) {
                     database.todoTaskDao().insert(updated)
@@ -1034,7 +1037,8 @@ class SettingsViewModel(
                     startDate = startDate,
                     endDate = endDate,
                     notes = payload.notes,
-                    updatedAt = item.updatedAt
+                    updatedAt = item.updatedAt,
+                    synced = true
                 )
                 if (existing == null) {
                     database.periodDao().upsert(updated)

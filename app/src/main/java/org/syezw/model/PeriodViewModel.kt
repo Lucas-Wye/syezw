@@ -142,7 +142,8 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
                     startDate = date,
                     endDate = defaultEndDate,
                     notes = notes,
-                    updatedAt = System.currentTimeMillis()
+                    updatedAt = System.currentTimeMillis(),
+                    synced = false
                 )
             )
         }
@@ -158,13 +159,13 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
             if (nextRecord != null && newEndDate.isAfter(nextRecord.startDate.minusDays(1))) {
                 return@launch
             }
-            periodDao.upsert(record.copy(endDate = newEndDate, updatedAt = System.currentTimeMillis()))
+            periodDao.upsert(record.copy(endDate = newEndDate, updatedAt = System.currentTimeMillis(), synced = false))
         }
     }
 
     fun updateRecordNotes(record: PeriodRecord, newNotes: String) {
         viewModelScope.launch {
-            periodDao.upsert(record.copy(notes = newNotes, updatedAt = System.currentTimeMillis()))
+            periodDao.upsert(record.copy(notes = newNotes, updatedAt = System.currentTimeMillis(), synced = false))
         }
     }
 

@@ -405,7 +405,8 @@ class DiaryViewModel(
                 timestamp = currentState.currentTimestamp,
                 location = currentState.currentLocation,
                 imageUris = currentState.currentImagePaths.map(::normalizeDiaryImageName),
-                updatedAt = System.currentTimeMillis()
+                updatedAt = System.currentTimeMillis(),
+                synced = false
             ) ?: Diary(
                 content = currentState.currentContent,
                 author = authorToUse,
