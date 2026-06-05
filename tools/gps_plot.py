@@ -72,7 +72,7 @@ cbar = plt.colorbar(sc, ax=ax, shrink=0.6, label="time")
 ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, alpha=0.8)
 
 # 设置标题和隐藏坐标轴
-ax.set_title("GPS Rounting", fontsize=14)
+ax.set_title("GPS Routing", fontsize=14)
 ax.set_axis_off()
 
 # 添加图例
