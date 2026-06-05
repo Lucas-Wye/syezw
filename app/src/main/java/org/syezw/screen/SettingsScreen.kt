@@ -197,15 +197,7 @@ fun SettingsScreen(
         onResult = { permissions ->
             val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
             val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-            val backgroundGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                permissions[Manifest.permission.ACCESS_BACKGROUND_LOCATION] == true
-            } else {
-                true
-            }
             if (fineGranted || coarseGranted) {
-                if (!backgroundGranted) {
-                    Toast.makeText(context, "Background location permission is recommended for GPS tracking", Toast.LENGTH_LONG).show()
-                }
                 startGpsService()
             } else {
                 Toast.makeText(context, "Location permission is required for GPS tracking", Toast.LENGTH_LONG).show()
