@@ -697,11 +697,7 @@ fun SettingsScreen(
                     Text("trade记录")
                 }
             }
-            Text(
-                text = "",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 
