@@ -66,19 +66,16 @@ DELETE FROM todo_sync;
 DELETE FROM period_sync;
 DELETE FROM diary_images;
 DELETE FROM diary_image_refs;
-DELETE FROM gps_sync;
 
 SELECT * FROM diary_sync;
 SELECT * FROM todo_sync;
 SELECT * FROM period_sync;
 SELECT * FROM diary_images;
 SELECT * FROM diary_image_refs;
-SELECT * FROM gps_sync;
 
 SELECT COUNT(*) FROM diary_sync;
 SELECT COUNT(*) FROM todo_sync;
 SELECT COUNT(*) FROM period_sync;
 SELECT COUNT(*) FROM diary_images;
 SELECT COUNT(*) FROM diary_image_refs;
-SELECT COUNT(*) FROM gps_sync;
 ```
