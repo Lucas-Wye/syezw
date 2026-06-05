@@ -7,7 +7,7 @@ use sqlx::postgres::PgPoolOptions;
 use syezw_sync_backend::db::{build_db_url, EnvConfig};
 use syezw_sync_backend::{
     image_fetch, image_hashes, image_refs, image_refs_upsert, image_upload, sync_download,
-    sync_upload, sync_upload_gps, AppState,
+    sync_upload, AppState,
 };
 
 #[actix_web::main]
@@ -42,7 +42,6 @@ async fn main() -> std::io::Result<()> {
                 pool: pool.clone(),
             }))
             .route("/sync/upload", web::post().to(sync_upload))
-            .route("/sync/uploadGPS", web::post().to(sync_upload_gps))
             .route("/sync/download", web::post().to(sync_download))
             .route("/sync/meta", web::post().to(syezw_sync_backend::sync_meta))
             .route("/images/fetch", web::post().to(image_fetch))

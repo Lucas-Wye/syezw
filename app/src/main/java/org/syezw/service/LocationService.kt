@@ -9,13 +9,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.database.sqlite.SQLiteException
-import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -31,7 +29,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.syezw.MainActivity
 import org.syezw.data.AppDatabase
+import org.syezw.model.GpsPrefKeys
 import org.syezw.dataStore
+import org.syezw.preference.SettingsManager
 import org.syezw.util.GpsLocationSaver
 import org.syezw.util.toGpsLocationSample
 
@@ -40,7 +40,7 @@ class LocationService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var database: AppDatabase? = null
+    private lateinit var database: AppDatabase
     private var gpsCheckTimer: kotlinx.coroutines.Job? = null
 
     companion object {
@@ -59,17 +59,12 @@ class LocationService : Service() {
         const val MIN_INTERVAL_MS = 5_000L
         const val DEFAULT_PRIORITY = Priority.PRIORITY_BALANCED_POWER_ACCURACY
 
-        private val GPS_PRIORITY_KEY = stringPreferencesKey("gps_priority")
-        private val GPS_INTERVAL_MS_KEY = stringPreferencesKey("gps_interval_ms")
-        private val GPS_FASTEST_INTERVAL_MS_KEY = stringPreferencesKey("gps_fastest_interval_ms")
-        private val DEFAULT_AUTHOR_KEY = stringPreferencesKey("default_author")
-
         fun start(
             context: Context,
             priority: Int = DEFAULT_PRIORITY,
             intervalMs: Long = DEFAULT_INTERVAL_MS,
             fastestIntervalMs: Long = DEFAULT_FASTEST_INTERVAL_MS,
-            author: String = ""
+            author: String = SettingsManager.DEFAULT_AUTHOR_VALUE
         ) {
             val intent = Intent(context, LocationService::class.java).apply {
                 putExtra(EXTRA_PRIORITY, priority)
@@ -95,6 +90,7 @@ class LocationService : Service() {
     override fun onCreate() {
         super.onCreate()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        database = AppDatabase.getDatabase(this)
         createNotificationChannel()
     }
 
@@ -116,15 +112,13 @@ class LocationService : Service() {
                 .coerceAtLeast(MIN_INTERVAL_MS)
             fastestIntervalMs = intent.getLongExtra(EXTRA_FASTEST_INTERVAL_MS, DEFAULT_FASTEST_INTERVAL_MS)
                 .coerceAtLeast(MIN_INTERVAL_MS)
-            author = intent.getStringExtra(EXTRA_AUTHOR) ?: ""
+            author = intent.getStringExtra(EXTRA_AUTHOR) ?: SettingsManager.DEFAULT_AUTHOR_VALUE
         } else {
-            val prefs = runCatching {
-                runBlockingReadPrefs()
-            }.getOrDefault(null)
+            val prefs = runBlockingReadPrefs()
             priority = prefs?.priority ?: DEFAULT_PRIORITY
             intervalMs = (prefs?.intervalMs ?: DEFAULT_INTERVAL_MS).coerceAtLeast(MIN_INTERVAL_MS)
             fastestIntervalMs = (prefs?.fastestIntervalMs ?: DEFAULT_FASTEST_INTERVAL_MS).coerceAtLeast(MIN_INTERVAL_MS)
-            author = prefs?.author ?: ""
+            author = prefs?.author ?: SettingsManager.DEFAULT_AUTHOR_VALUE
         }
 
         val notification = buildNotification()
@@ -133,8 +127,6 @@ class LocationService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-
-        database = AppDatabase.getDatabase(this)
 
         startLocationUpdates(priority, intervalMs, fastestIntervalMs, author)
         startGpsStatusCheck()
@@ -156,7 +148,7 @@ class LocationService : Service() {
             }
         }.getOrNull() ?: return null
 
-        val priorityStr = prefs[GPS_PRIORITY_KEY] ?: "balanced"
+        val priorityStr = prefs[GpsPrefKeys.GPS_PRIORITY] ?: "balanced"
         val priority = when (priorityStr) {
             "high_accuracy" -> Priority.PRIORITY_HIGH_ACCURACY
             "balanced" -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
@@ -164,9 +156,9 @@ class LocationService : Service() {
             "no_power" -> Priority.PRIORITY_PASSIVE
             else -> DEFAULT_PRIORITY
         }
-        val intervalMs = prefs[GPS_INTERVAL_MS_KEY]?.toLongOrNull() ?: DEFAULT_INTERVAL_MS
-        val fastestIntervalMs = prefs[GPS_FASTEST_INTERVAL_MS_KEY]?.toLongOrNull() ?: DEFAULT_FASTEST_INTERVAL_MS
-        val author = prefs[DEFAULT_AUTHOR_KEY] ?: ""
+        val intervalMs = prefs[GpsPrefKeys.GPS_INTERVAL_MS]?.toLongOrNull() ?: DEFAULT_INTERVAL_MS
+        val fastestIntervalMs = prefs[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS]?.toLongOrNull() ?: DEFAULT_FASTEST_INTERVAL_MS
+        val author = prefs[SettingsManager.DEFAULT_AUTHOR_KEY] ?: SettingsManager.DEFAULT_AUTHOR_VALUE
 
         return RestoredPrefs(priority, intervalMs, fastestIntervalMs, author)
     }
@@ -262,7 +254,17 @@ class LocationService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.locations.forEach { location ->
-                    saveLocation(location, author)
+                    serviceScope.launch {
+                        try {
+                            GpsLocationSaver.saveLocation(
+                                database.gpsLocationDao(),
+                                location.toGpsLocationSample(),
+                                author
+                            )
+                        } catch (e: SQLiteException) {
+                            Log.e(TAG, "Failed to persist GPS location", e)
+                        }
+                    }
                 }
             }
         }
@@ -290,18 +292,4 @@ class LocationService : Service() {
         }
     }
 
-    private fun saveLocation(location: Location, author: String) {
-        val db = database
-        if (db == null) {
-            Log.w(TAG, "Database unavailable, dropping location update")
-            return
-        }
-        serviceScope.launch {
-            try {
-                GpsLocationSaver.saveLocation(db.gpsLocationDao(), location.toGpsLocationSample(), author)
-            } catch (e: SQLiteException) {
-                Log.e(TAG, "Failed to persist GPS location", e)
-            }
-        }
-    }
 }

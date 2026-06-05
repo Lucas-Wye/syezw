@@ -19,5 +19,4 @@ data class GpsLocation(
     val timestamp: Long,
     val endTimestamp: Long? = null,
     val author: String = "",
-    val synced: Boolean = false
 )

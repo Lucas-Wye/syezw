@@ -13,23 +13,7 @@ class GpsModeTest {
         assertEquals("gps_priority", GpsPrefKeys.GPS_PRIORITY.name)
         assertEquals("gps_interval_ms", GpsPrefKeys.GPS_INTERVAL_MS.name)
         assertEquals("gps_fastest_interval_ms", GpsPrefKeys.GPS_FASTEST_INTERVAL_MS.name)
-        assertEquals("gps_mode", GpsPrefKeys.GPS_MODE.name)
         assertEquals("gps_workmanager_start_time", GpsPrefKeys.GPS_WORKMANAGER_START_TIME.name)
-    }
-
-    @Test
-    fun gpsMode_defaultIsForeground() {
-        // The default value when no preference is stored should be "foreground"
-        val defaultMode = "foreground"
-        assertEquals("foreground", defaultMode)
-    }
-
-    @Test
-    fun gpsMode_workmanagerIsValidChoice() {
-        val validModes = setOf("foreground", "workmanager")
-        assertTrue(validModes.contains("foreground"))
-        assertTrue(validModes.contains("workmanager"))
-        assertEquals(2, validModes.size)
     }
 
     @Test

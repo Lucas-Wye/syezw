@@ -54,7 +54,6 @@ abstract class AppDatabase : RoomDatabase() {
                         author TEXT NOT NULL DEFAULT ''
                     )
                 """)
-                db.execSQL("ALTER TABLE gps_locations ADD COLUMN synced INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_gps_locations_timestamp ON gps_locations(timestamp)")
                 // Add synced column to diary_list
                 db.execSQL("ALTER TABLE diary_list ADD COLUMN synced INTEGER NOT NULL DEFAULT 0")

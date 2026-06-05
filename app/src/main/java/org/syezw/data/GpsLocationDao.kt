@@ -21,20 +21,8 @@ interface GpsLocationDao {
     @Query("SELECT * FROM gps_locations ORDER BY timestamp DESC")
     suspend fun getAllList(): List<GpsLocation>
 
-    @Query("SELECT * FROM gps_locations WHERE synced = 0 ORDER BY timestamp ASC")
-    suspend fun getUnsyncedList(): List<GpsLocation>
-
-    @Query("UPDATE gps_locations SET synced = 1 WHERE id IN (:ids)")
-    suspend fun markAsSynced(ids: List<Long>)
-
     @Query("SELECT * FROM gps_locations WHERE timestamp BETWEEN :startTime AND :endTime ORDER BY timestamp ASC")
     suspend fun getByTimeRange(startTime: Long, endTime: Long): List<GpsLocation>
-
-    @Query("SELECT COUNT(*) FROM gps_locations")
-    suspend fun count(): Int
-
-    @Query("DELETE FROM gps_locations")
-    suspend fun clearAll()
 
     @Query("SELECT * FROM gps_locations ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLastLocation(): GpsLocation?

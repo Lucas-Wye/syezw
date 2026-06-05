@@ -106,7 +106,7 @@ Tests (`backend/.env`):
   - Returns server-side metadata (uuid + updatedAt) for diary/todo/period.
   - Used by clients to determine which records need upload.
 - `POST /sync/upload`
-  - Upload encrypted Diary/Todo/Period/GPS payloads.
+  - Upload encrypted Diary/Todo/Period payloads.
   - Also supports image uploads (legacy path).
 - `POST /sync/download`
   - Accepts client metadata and returns only server records that are missing or outdated on the client.
@@ -136,10 +136,6 @@ Tables (see `backend/sql/schema.sql`):
 - `period_sync`
   - `start_date` PK, `end_date`
   - `updated_at`, `payload_iv`, `payload_data`
-- `gps_sync`
-  - `uuid` PK
-  - `author`, `timestamp`
-  - `payload_iv`, `payload_data`
 - `diary_images`
   - `hash` PK
   - `blob_iv`, `blob_data`, `updated_at`
@@ -173,7 +169,6 @@ Image encryption:
    - Diary payload: content/tags/location/imageUris
    - Todo payload: name
    - Period payload: notes
-   - GPS payload: latitude/longitude/accuracy/altitude/speed/timestamp/author
 3. `POST /sync/meta` to get server-side metadata (uuid + updatedAt).
 4. Compare local `updatedAt` with server metadata:
    - Upload only records that are missing on server or newer than server.

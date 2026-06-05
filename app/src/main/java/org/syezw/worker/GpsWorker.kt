@@ -3,7 +3,6 @@ package org.syezw.worker
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Location
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.syezw.data.AppDatabase
 import org.syezw.dataStore
+import org.syezw.preference.SettingsManager
 import org.syezw.util.GpsLocationSaver
 import org.syezw.util.toGpsLocationSample
 import java.util.concurrent.TimeUnit
@@ -30,7 +30,6 @@ class GpsWorker(
     companion object {
         private const val TAG = "GpsWorker"
         const val WORKER_TAG = "gps_location_worker"
-        private val DEFAULT_AUTHOR_KEY = stringPreferencesKey("default_author")
     }
 
     override suspend fun doWork(): Result {
@@ -57,9 +56,8 @@ class GpsWorker(
             }
 
             if (location != null) {
-                // Log.d(TAG, "Got location: %.2f, %.2f".format(location.latitude, location.longitude))
                 val author = readAuthor()
-                saveLocation(database, location, author)
+                GpsLocationSaver.saveLocation(database.gpsLocationDao(), location.toGpsLocationSample(), author)
                 Result.success()
             } else {
                 Log.w(TAG, "Failed to get current location")
@@ -83,20 +81,10 @@ class GpsWorker(
     private suspend fun readAuthor(): String {
         return try {
             val prefs = context.dataStore.data.first()
-            prefs[DEFAULT_AUTHOR_KEY] ?: ""
+            prefs[SettingsManager.DEFAULT_AUTHOR_KEY] ?: SettingsManager.DEFAULT_AUTHOR_VALUE
         } catch (e: Exception) {
             Log.w(TAG, "Failed to read author from DataStore", e)
-            ""
-        }
-    }
-
-    private suspend fun saveLocation(database: AppDatabase, location: Location, author: String) {
-        try {
-            GpsLocationSaver.saveLocation(database.gpsLocationDao(), location.toGpsLocationSample(), author)
-            // Log.d(TAG, "Location saved successfully")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to save location", e)
-            throw e
+            SettingsManager.DEFAULT_AUTHOR_VALUE
         }
     }
 }

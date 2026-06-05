@@ -42,6 +42,36 @@ class GpsLocationSaverTest {
     }
 
     @Test
+    fun saveLocation_keepsEndTimeMonotonic_whenNearPointIsOlder() = runBlocking {
+        val dao = FakeGpsLocationDao(
+            initialLocations = listOf(
+                GpsLocation(
+                    id = 1,
+                    latitude = 39.9042,
+                    longitude = 116.4074,
+                    timestamp = 2_000L,
+                    endTimestamp = 2_500L,
+                    author = "alice"
+                )
+            )
+        )
+
+        GpsLocationSaver.saveLocation(
+            dao = dao,
+            sample = GpsLocationSample(
+                latitude = 39.9042001,
+                longitude = 116.4074001,
+                timestamp = 2_100L
+            ),
+            author = "alice"
+        )
+
+        assertEquals(0, dao.insertedLocations.size)
+        assertEquals(1L to 2_500L, dao.updatedEndTime)
+        assertEquals(2_500L, dao.getLastLocation()?.endTimestamp)
+    }
+
+    @Test
     fun saveLocation_insertsNewLocation_whenReadingIsFarAway() = runBlocking {
         val dao = FakeGpsLocationDao(
             initialLocations = listOf(
@@ -105,25 +135,8 @@ class GpsLocationSaverTest {
 
         override suspend fun getAllList(): List<GpsLocation> = locations.sortedByDescending { it.timestamp }
 
-        override suspend fun getUnsyncedList(): List<GpsLocation> = locations.filter { !it.synced }
-
-        override suspend fun markAsSynced(ids: List<Long>) {
-            for (index in locations.indices) {
-                val location = locations[index]
-                if (location.id in ids) {
-                    locations[index] = location.copy(synced = true)
-                }
-            }
-        }
-
         override suspend fun getByTimeRange(startTime: Long, endTime: Long): List<GpsLocation> {
             return locations.filter { it.timestamp in startTime..endTime }.sortedBy { it.timestamp }
-        }
-
-        override suspend fun count(): Int = locations.size
-
-        override suspend fun clearAll() {
-            locations.clear()
         }
 
         override suspend fun getLastLocation(): GpsLocation? {

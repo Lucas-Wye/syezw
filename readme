@@ -28,6 +28,11 @@ $env:RELEASE_STORE_FILE="release.keystore"
 $env:RELEASE_STORE_PASSWORD="syezw2025"
 $env:RELEASE_KEY_ALIAS="syezw_release"
 $env:RELEASE_KEY_PASSWORD="syezw2025"
+
+set RELEASE_STORE_FILE=release.keystore
+set RELEASE_STORE_PASSWORD=syezw2025
+set RELEASE_KEY_ALIAS=syezw_release
+set RELEASE_KEY_PASSWORD=syezw2025
 ```
 .\gradlew compileReleaseSources
 .\gradlew assembleRelease

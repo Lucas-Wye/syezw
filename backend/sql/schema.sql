@@ -42,17 +42,3 @@ CREATE TABLE IF NOT EXISTS diary_image_refs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_diary_image_refs_hash ON diary_image_refs(hash);
-
-CREATE TABLE IF NOT EXISTS gps_sync (
-    uuid TEXT PRIMARY KEY,
-    author TEXT NOT NULL,
-    timestamp BIGINT NOT NULL,
-    end_timestamp BIGINT,
-    point_count INT NOT NULL DEFAULT 1,
-    payload_iv TEXT NOT NULL,
-    payload_data TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_gps_sync_timestamp ON gps_sync(timestamp);
-CREATE INDEX IF NOT EXISTS idx_gps_sync_time_range ON gps_sync(timestamp, end_timestamp);
-

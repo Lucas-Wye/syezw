@@ -8,11 +8,11 @@ pub mod models;
 use db::EnvConfig;
 use log::{info, warn};
 use models::{
-    DiaryImageRefItem, DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, GpsSyncItem,
-    GpsUploadRequest, ImageFetchRequest, ImageFetchResponse, ImageHashListResponse,
-    ImageRefsResponse, ImageRefsUpsertRequest, ImageUploadRequest, PeriodMeta, PeriodSyncItem,
-    SyncCounts, SyncDownloadEnvelope, SyncDownloadRequest, SyncDownloadResponse, SyncMeta,
-    SyncMetaResponse, SyncUploadRequest, SyncUploadResponse, TodoSyncItem,
+    DiaryImageRefItem, DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, ImageFetchRequest,
+    ImageFetchResponse, ImageHashListResponse, ImageRefsResponse, ImageRefsUpsertRequest,
+    ImageUploadRequest, PeriodMeta, PeriodSyncItem, SyncCounts, SyncDownloadEnvelope,
+    SyncDownloadRequest, SyncDownloadResponse, SyncMeta, SyncMetaResponse, SyncUploadRequest,
+    SyncUploadResponse, TodoSyncItem,
 };
 
 #[derive(Clone)]
@@ -69,7 +69,6 @@ pub async fn sync_upload(
                         diaries: 0,
                         todos: 0,
                         periods: 0,
-                        gps: 0,
                         images: 0,
                     },
                 }),
@@ -88,7 +87,6 @@ pub async fn sync_upload(
                         diaries: 0,
                         todos: 0,
                         periods: 0,
-                        gps: 0,
                         images: 0,
                     },
                 }),
@@ -107,7 +105,6 @@ pub async fn sync_upload(
                         diaries: 0,
                         todos: 0,
                         periods: 0,
-                        gps: 0,
                         images: 0,
                     },
                 }),
@@ -126,7 +123,6 @@ pub async fn sync_upload(
                         diaries: 0,
                         todos: 0,
                         periods: 0,
-                        gps: 0,
                         images: 0,
                     },
                 }),
@@ -145,7 +141,6 @@ pub async fn sync_upload(
                         diaries: 0,
                         todos: 0,
                         periods: 0,
-                        gps: 0,
                         images: 0,
                     },
                 }),
@@ -163,7 +158,6 @@ pub async fn sync_upload(
                     diaries: 0,
                     todos: 0,
                     periods: 0,
-                    gps: 0,
                     images: 0,
                 },
             }),
@@ -174,94 +168,11 @@ pub async fn sync_upload(
         diaries: payload.diaries.len(),
         todos: payload.todos.len(),
         periods: payload.periods.len(),
-        gps: 0, // GPS is not accepted via the combined upload endpoint
         images: payload.images.len(),
     };
     info!(
-        "sync_upload success: diaries={}, todos={}, periods={}, gps={}, images={}",
-        counts.diaries, counts.todos, counts.periods, counts.gps, counts.images
-    );
-    Ok(HttpResponse::Ok().json(SyncUploadResponse {
-        ok: true,
-        message: "ok".to_string(),
-        counts,
-    }))
-}
-
-pub async fn sync_upload_gps(
-    state: web::Data<AppState>,
-    req: HttpRequest,
-    payload: web::Json<GpsUploadRequest>,
-) -> actix_web::Result<impl Responder> {
-    if let Some(resp) = check_api_key(&req, &state) {
-        return Ok(resp);
-    }
-    let mut tx = match state.pool.begin().await {
-        Ok(tx) => tx,
-        Err(e) => {
-            warn!("sync_upload_gps: failed to begin transaction: {}", e);
-            return Ok(
-                HttpResponse::InternalServerError().json(SyncUploadResponse {
-                    ok: false,
-                    message: format!("db transaction start failed: {}", e),
-                    counts: SyncCounts {
-                        diaries: 0,
-                        todos: 0,
-                        periods: 0,
-                        gps: 0,
-                        images: 0,
-                    },
-                }),
-            );
-        }
-    };
-
-    for item in &payload.gps {
-        if let Err(e) = upsert_gps(&mut tx, item).await {
-            warn!("sync_upload_gps: gps upsert failed: {}", e);
-            return Ok(
-                HttpResponse::InternalServerError().json(SyncUploadResponse {
-                    ok: false,
-                    message: format!("gps upsert failed: {}", e),
-                    counts: SyncCounts {
-                        diaries: 0,
-                        todos: 0,
-                        periods: 0,
-                        gps: 0,
-                        images: 0,
-                    },
-                }),
-            );
-        }
-    }
-
-    if let Err(e) = tx.commit().await {
-        warn!("sync_upload_gps: commit failed: {}", e);
-        return Ok(
-            HttpResponse::InternalServerError().json(SyncUploadResponse {
-                ok: false,
-                message: format!("commit failed: {}", e),
-                counts: SyncCounts {
-                    diaries: 0,
-                    todos: 0,
-                    periods: 0,
-                    gps: 0,
-                    images: 0,
-                },
-            }),
-        );
-    }
-
-    let counts = SyncCounts {
-        diaries: 0,
-        todos: 0,
-        periods: 0,
-        gps: payload.gps.len(),
-        images: 0,
-    };
-    info!(
-        "sync_upload_gps success: diaries={}, todos={}, periods={}, gps={}, images={}",
-        counts.diaries, counts.todos, counts.periods, counts.gps, counts.images
+        "sync_upload success: diaries={}, todos={}, periods={}, images={}",
+        counts.diaries, counts.todos, counts.periods, counts.images
     );
     Ok(HttpResponse::Ok().json(SyncUploadResponse {
         ok: true,
@@ -314,7 +225,6 @@ pub async fn sync_download(
                         diaries: 0,
                         todos: 0,
                         periods: 0,
-                        gps: 0,
                         images: 0,
                     },
                     data: SyncDownloadResponse {
@@ -360,7 +270,7 @@ pub async fn sync_download(
             return Ok(HttpResponse::InternalServerError().json(SyncDownloadEnvelope {
                 ok: false,
                 message: format!("todo query failed: {}", e),
-                counts: SyncCounts { diaries: 0, todos: 0, periods: 0, gps: 0, images: 0 },
+                counts: SyncCounts { diaries: 0, todos: 0, periods: 0, images: 0 },
                 data: SyncDownloadResponse { diaries: vec![], todos: vec![], periods: vec![], images: vec![] },
             }));
         }
@@ -400,7 +310,7 @@ pub async fn sync_download(
             return Ok(HttpResponse::InternalServerError().json(SyncDownloadEnvelope {
                 ok: false,
                 message: format!("period query failed: {}", e),
-                counts: SyncCounts { diaries: 0, todos: 0, periods: 0, gps: 0, images: 0 },
+                counts: SyncCounts { diaries: 0, todos: 0, periods: 0, images: 0 },
                 data: SyncDownloadResponse { diaries: vec![], todos: vec![], periods: vec![], images: vec![] },
             }));
         }
@@ -435,12 +345,11 @@ pub async fn sync_download(
         diaries: response.diaries.len(),
         todos: response.todos.len(),
         periods: response.periods.len(),
-        gps: 0,
         images: response.images.len(),
     };
     info!(
-        "sync_download success: diaries={}, todos={}, periods={}, gps={}, images={}",
-        counts.diaries, counts.todos, counts.periods, counts.gps, counts.images
+        "sync_download success: diaries={}, todos={}, periods={}, images={}",
+        counts.diaries, counts.todos, counts.periods, counts.images
     );
     Ok(HttpResponse::Ok().json(SyncDownloadEnvelope {
         ok: true,
@@ -795,35 +704,6 @@ async fn upsert_period(
     .execute(&mut **tx)
     .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
-    Ok(())
-}
-
-async fn upsert_gps(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    item: &GpsSyncItem,
-) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        r#"
-        INSERT INTO gps_sync (uuid, author, timestamp, end_timestamp, point_count, payload_iv, payload_data)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (uuid) DO UPDATE SET
-            author = EXCLUDED.author,
-            timestamp = EXCLUDED.timestamp,
-            end_timestamp = EXCLUDED.end_timestamp,
-            point_count = EXCLUDED.point_count,
-            payload_iv = EXCLUDED.payload_iv,
-            payload_data = EXCLUDED.payload_data
-        "#,
-    )
-    .bind(&item.uuid)
-    .bind(&item.author)
-    .bind(item.timestamp)
-    .bind(item.end_timestamp)
-    .bind(item.point_count.unwrap_or(1))
-    .bind(&item.payload.iv)
-    .bind(&item.payload.data)
-    .execute(&mut **tx)
-    .await?;
     Ok(())
 }
 

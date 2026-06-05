@@ -91,34 +91,13 @@ class MainActivity : ComponentActivity() {
             try {
                 val prefs = dataStore.data.first()
                 val gpsEnabled = prefs[GpsPrefKeys.GPS_ENABLED] ?: false
-                val gpsMode = prefs[GpsPrefKeys.GPS_MODE] ?: "foreground"
 
                 if (gpsEnabled) {
-                    when (gpsMode) {
-                        "foreground" -> {
-                            // Log.d(TAG, "Foreground GPS was active on restart. Resetting to disabled.")
-                            dataStore.edit { settings ->
-                                settings[GpsPrefKeys.GPS_ENABLED] = false
-                            }
-                            LocationService.stop(this@MainActivity)
-                        }
-                        "workmanager" -> {
-                            // Log.d(TAG, "WorkManager GPS was active on restart. Checking expiration.")
-                            val startTime = prefs[GpsPrefKeys.GPS_WORKMANAGER_START_TIME]?.toLongOrNull() ?: 0L
-                            if (startTime > 0) {
-                                val elapsed = System.currentTimeMillis() - startTime
-                                val oneWeekMs = 7 * 24 * 60 * 60 * 1000L
-                                if (elapsed > oneWeekMs) {
-                                    // Log.d(TAG, "WorkManager GPS expired. Disabling.")
-                                    dataStore.edit { settings ->
-                                        settings[GpsPrefKeys.GPS_ENABLED] = false
-                                        settings.remove(GpsPrefKeys.GPS_WORKMANAGER_START_TIME)
-                                    }
-                                    androidx.work.WorkManager.getInstance(this@MainActivity).cancelUniqueWork(GpsWorker.WORKER_TAG)
-                                }
-                            }
-                        }
+                    // Log.d(TAG, "Foreground GPS was active on restart. Resetting to disabled.")
+                    dataStore.edit { settings ->
+                        settings[GpsPrefKeys.GPS_ENABLED] = false
                     }
+                    LocationService.stop(this@MainActivity)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error handling GPS state on restart", e)
