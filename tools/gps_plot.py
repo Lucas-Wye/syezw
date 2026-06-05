@@ -7,21 +7,21 @@ from shapely.geometry import LineString
 # ------------------------------
 # 1. 读取 CSV 数据
 # ------------------------------
-df = pd.read_csv('gps.csv')
+df = pd.read_csv("gps.csv")
 
 # 将 timestamp 列转为 datetime 类型，便于排序和颜色映射
-df['timestamp'] = pd.to_datetime(df['timestamp'])
+df["timestamp"] = pd.to_datetime(df["timestamp"])
 
 # 按时间排序（确保路线顺序正确）
-df = df.sort_values('timestamp')
+df = df.sort_values("timestamp")
 
 # ------------------------------
 # 2. 创建 GeoDataFrame（点）
 # ------------------------------
 gdf_points = gpd.GeoDataFrame(
     df,
-    geometry=gpd.points_from_xy(df['longitude'], df['latitude']),
-    crs="EPSG:4326"          # WGS84 经纬度坐标系
+    geometry=gpd.points_from_xy(df["longitude"], df["latitude"]),
+    crs="EPSG:4326",  # WGS84 经纬度坐标系
 )
 
 # ------------------------------
@@ -42,11 +42,11 @@ gdf_line_mercator = gdf_line.to_crs(epsg=3857)
 fig, ax = plt.subplots(figsize=(12, 10))
 
 # 绘制路线（灰色线）
-gdf_line_mercator.plot(ax=ax, color='gray', linewidth=2.5, alpha=0.7, label='route')
+gdf_line_mercator.plot(ax=ax, color="gray", linewidth=2.5, alpha=0.7, label="route")
 
 # 用颜色映射展示时间变化
 # 将时间转换为数值（Unix 时间戳）用于颜色映射
-time_numeric = gdf_points['timestamp'].astype('int64') // 10**9  # 秒为单位
+time_numeric = gdf_points["timestamp"].astype("int64") // 10**9  # 秒为单位
 norm = plt.Normalize(time_numeric.min(), time_numeric.max())
 cmap = plt.cm.plasma
 
@@ -58,13 +58,13 @@ sc = ax.scatter(
     cmap=cmap,
     norm=norm,
     s=60,
-    edgecolor='black',
+    edgecolor="black",
     linewidth=0.5,
-    label='tracing point'
+    label="tracing point",
 )
 
 # 添加颜色条（显示时间）
-cbar = plt.colorbar(sc, ax=ax, shrink=0.6, label='time')
+cbar = plt.colorbar(sc, ax=ax, shrink=0.6, label="time")
 # 可选：将颜色条刻度显示为可读时间格式
 # 此处简化处理，不展开
 
@@ -72,11 +72,11 @@ cbar = plt.colorbar(sc, ax=ax, shrink=0.6, label='time')
 ctx.add_basemap(ax, source=ctx.providers.OpenStreetMap.Mapnik, alpha=0.8)
 
 # 设置标题和隐藏坐标轴
-ax.set_title('GPS Rounting', fontsize=14)
+ax.set_title("GPS Rounting", fontsize=14)
 ax.set_axis_off()
 
 # 添加图例
-ax.legend(loc='upper right')
+ax.legend(loc="upper right")
 
 # 显示图形
 plt.tight_layout()

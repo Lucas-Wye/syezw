@@ -251,7 +251,7 @@ fun SettingsScreen(
                 settingsViewModel.setGpsEnabled(false)
                 return
             }
-            
+
             if (!hasNotificationPermission()) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -386,7 +386,7 @@ fun SettingsScreen(
                     Text("移除背景图片")
                 }
             }
-            
+
             // 添加周期记录功能的开关
             Row(
                 modifier = Modifier.fillMaxWidth(),

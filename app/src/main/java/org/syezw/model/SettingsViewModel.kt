@@ -662,7 +662,7 @@ class SettingsViewModel(
                 appendSyncLog("upload", true, "开始上传")
                 val key = deriveAesKeyFromPassphrase(passphrase)
                 setUploadProgress(true, 10, "检查差异")
-                
+
                 // 获取所有未同步的数据
                 val diaryIds = mutableListOf<Int>()
                 val diaries = database.diaryDao().getUnsyncedList()
@@ -795,7 +795,7 @@ class SettingsViewModel(
                     val percent = if (total == 0) 100 else 80 + (done * 20 / total)
                     setUploadProgress(true, percent, "上传图片 ${done}/${total}")
                 }
-                
+
                 val summary = SyncCountSummary(
                     diaries = diaries.size,
                     todos = todos.size,
@@ -1187,9 +1187,9 @@ class SettingsViewModel(
         var uploadedCount = 0
         val totalImages = imagesToUpload.size
         onProgress(0, totalImages)
-        
+
         val uploadErrors = mutableListOf<String>()
-        
+
         // Batch image uploads to avoid huge single requests
         val imageBatches = chunkBySize(imagesToUpload, maxUploadBatchBytes)
         for (batch in imageBatches) {
@@ -1228,13 +1228,13 @@ class SettingsViewModel(
                 }
             }
         }
-        
+
         // Throw exception if any image uploads failed
         if (uploadErrors.isNotEmpty()) {
             val errorSummary = uploadErrors.joinToString("; ")
             throw Exception("图片上传失败，数据已部分上传: $errorSummary")
         }
-        
+
         return uploadedCount
     }
 
