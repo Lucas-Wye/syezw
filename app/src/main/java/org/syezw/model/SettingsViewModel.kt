@@ -74,7 +74,6 @@ import org.syezw.sync.ImageUploadRequest
 import org.syezw.sync.PeriodPayload
 import org.syezw.sync.PeriodSyncItem
 import org.syezw.sync.PeriodMeta
-import org.syezw.sync.GpsSyncItem
 import org.syezw.sync.SyncCounts
 import org.syezw.sync.SyncDownloadRequest
 import org.syezw.sync.SyncDownloadEnvelope
@@ -715,10 +714,6 @@ class SettingsViewModel(
                     )
                 }
 
-                val fallbackAuthor = defaultAuthor.first()
-                // GPS is excluded from the combined main upload. Use the separate "Upload GPS Data to Remote" button.
-                val unsyncedLocations = emptyList<Any>()
-
                 val images = emptyList<DiaryImageSyncItem>()
 
                 val totalTextItems = diaries.size + todos.size + periods.size
@@ -1346,13 +1341,13 @@ class SettingsViewModel(
                 parsed ?: SyncUploadResponse(
                     ok = false,
                     message = "上传失败: ${response.code}",
-                    counts = SyncCounts(0, 0, 0, 0, 0)
+                    counts = SyncCounts(0, 0, 0, 0)
                 )
             } else {
                 parsed ?: SyncUploadResponse(
                     ok = true,
                     message = "ok",
-                    counts = SyncCounts(diaries.size, todos.size, periods.size, 0, images.size)
+                    counts = SyncCounts(diaries.size, todos.size, periods.size, images.size)
                 )
             }
         }

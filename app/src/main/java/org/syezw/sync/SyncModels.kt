@@ -38,17 +38,6 @@ data class PeriodPayload(
     val notes: String?
 )
 
-data class GpsPayload(
-    val latitude: Double,
-    val longitude: Double,
-    val accuracy: Float?,
-    val altitude: Double?,
-    val speed: Float?,
-    val timestamp: Long,
-    val endTimestamp: Long? = null,
-    val author: String
-)
-
 data class PeriodSyncItem(
     val startDate: String,
     val endDate: String,
@@ -56,13 +45,6 @@ data class PeriodSyncItem(
     val payload: EncryptedBlob
 )
 
-data class GpsSyncItem(
-    val uuid: String,
-    val author: String,
-    val timestamp: Long,
-    val endTimestamp: Long? = null,
-    val payload: EncryptedBlob
-)
 
 data class DiaryImageSyncItem(
     val fileName: String,
@@ -90,7 +72,6 @@ data class SyncCounts(
     val diaries: Int,
     val todos: Int,
     val periods: Int,
-    val gps: Int = 0,
     val images: Int
 )
 
