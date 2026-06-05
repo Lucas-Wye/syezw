@@ -29,4 +29,10 @@ interface GpsLocationDao {
 
     @Query("UPDATE gps_locations SET endTimestamp = :endTime WHERE id = :id")
     suspend fun updateEndTime(id: Long, endTime: Long)
+
+    @Query("SELECT COUNT(*) FROM gps_locations")
+    suspend fun count(): Int
+
+    @Query("DELETE FROM gps_locations")
+    suspend fun clearAll()
 }
