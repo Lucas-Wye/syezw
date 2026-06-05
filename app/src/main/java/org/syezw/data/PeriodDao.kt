@@ -29,7 +29,7 @@ interface PeriodDao {
     suspend fun getUnsyncedList(): List<PeriodRecord>
 
     @Query("UPDATE period_records SET synced = 1 WHERE startDate IN (:startDates)")
-    suspend fun markAsSynced(startDates: List<String>)
+    suspend fun markAsSynced(startDates: List<Long>)
 
     // 使用 @Transaction 注解，确保这两个操作在同一个事务中完成
     @Transaction
