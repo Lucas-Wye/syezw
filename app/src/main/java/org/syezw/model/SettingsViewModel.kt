@@ -701,9 +701,9 @@ class SettingsViewModel(
                     )
                 }
 
-                val periodStartDates = mutableListOf<String>()
+                val periodStartDates = mutableListOf<Long>()
                 val periods = database.periodDao().getUnsyncedList()
-                    .also { periodStartDates.addAll(it.map { p -> p.startDate.toString() }) }
+                    .also { periodStartDates.addAll(it.map { p -> p.startDate.toEpochDay() }) }
                     .map { record ->
                     val payload = PeriodPayload(notes = record.notes)
                     val payloadJson = gson.toJson(payload)
