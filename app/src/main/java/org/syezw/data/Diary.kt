@@ -17,6 +17,5 @@ data class Diary(
     val updatedAt: Long = System.currentTimeMillis(),
     val location: String? = null,
     // Store only image file names (e.g. "img_123.jpg"); resolve full path at use time.
-    val imageUris: List<String> = emptyList(),
-    val synced: Boolean = false
+    val imageUris: List<String> = emptyList()
 )

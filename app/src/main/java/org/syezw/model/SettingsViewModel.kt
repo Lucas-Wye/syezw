@@ -565,7 +565,7 @@ class SettingsViewModel(
                         val existing = database.diaryDao().getAllEntriesList()
                         for (item in diaries) {
                             if (existing.none { it.content == item.content && it.timestamp == item.timestamp }) {
-                                database.diaryDao().insert(item.copy(id = 0, synced = true))
+                                database.diaryDao().insert(item.copy(id = 0))
                                 importedCount++
                             }
                         }
@@ -581,7 +581,7 @@ class SettingsViewModel(
                         val existing = database.todoTaskDao().getAllTasksList()
                         for (item in todos) {
                             if (existing.none { it.name == item.name && it.createdAt == item.createdAt }) {
-                                database.todoTaskDao().insert(item.copy(id = 0, synced = true))
+                                database.todoTaskDao().insert(item.copy(id = 0))
                                 importedCount++
                             }
                         }
@@ -594,8 +594,7 @@ class SettingsViewModel(
                     if (json.isNotEmpty()) {
                         val type = object : TypeToken<List<PeriodRecord>>() {}.type
                         val periods: List<PeriodRecord> = gson.fromJson(json, type)
-                        val updatedPeriods = periods.map { it.copy(synced = true) }
-                        database.periodDao().upsertAll(updatedPeriods)
+                        database.periodDao().upsertAll(periods)
                         importedCount += periods.size
                     }
                 }
@@ -663,9 +662,18 @@ class SettingsViewModel(
                 val key = deriveAesKeyFromPassphrase(passphrase)
                 setUploadProgress(true, 10, "检查差异")
 
-                // 获取所有未同步的数据
+                // 获取服务器元数据，对比后只上传服务端缺失或更新的数据
+                val serverMeta = fetchRemoteMeta(apiBaseUrl, apiKey)
+                val serverDiaryMeta = serverMeta?.diaries?.associateBy { it.uuid } ?: emptyMap()
+                val serverTodoMeta = serverMeta?.todos?.associateBy { it.uuid } ?: emptyMap()
+                val serverPeriodMeta = serverMeta?.periods?.associateBy { it.startDate } ?: emptyMap()
+
                 val diaryIds = mutableListOf<Int>()
-                val diaries = database.diaryDao().getUnsyncedList()
+                val diaries = database.diaryDao().getAllEntriesList()
+                    .filter { diary ->
+                        val server = serverDiaryMeta[diary.uuid]
+                        server == null || diary.updatedAt > server.updatedAt
+                    }
                     .also { diaryIds.addAll(it.map { d -> d.id }) }
                     .map { diary ->
                     val payload = DiaryPayload(
@@ -685,7 +693,11 @@ class SettingsViewModel(
                 }
 
                 val todoIds = mutableListOf<Int>()
-                val todos = database.todoTaskDao().getUnsyncedList()
+                val todos = database.todoTaskDao().getAllTasksList()
+                    .filter { task ->
+                        val server = serverTodoMeta[task.uuid]
+                        server == null || task.updatedAt > server.updatedAt
+                    }
                     .also { todoIds.addAll(it.map { t -> t.id }) }
                     .map { task ->
                     val payload = TodoPayload(name = task.name)
@@ -702,7 +714,11 @@ class SettingsViewModel(
                 }
 
                 val periodStartDates = mutableListOf<Long>()
-                val periods = database.periodDao().getUnsyncedList()
+                val periods = database.periodDao().getAllRecords().first()
+                    .filter { record ->
+                        val server = serverPeriodMeta[record.startDate.toString()]
+                        server == null || record.updatedAt > server.updatedAt
+                    }
                     .also { periodStartDates.addAll(it.map { p -> p.startDate.toEpochDay() }) }
                     .map { record ->
                     val payload = PeriodPayload(notes = record.notes)
@@ -742,10 +758,6 @@ class SettingsViewModel(
                     processedTextItems += batch.size
                     updateTextProgress()
                 }
-                // Mark diaries as synced after ALL diary batches succeed
-                if (diaryIds.isNotEmpty()) {
-                    database.diaryDao().markAsSynced(diaryIds)
-                }
 
                 val todoBatches = chunkBySize(todos, maxUploadBatchBytes)
                 for (batch in todoBatches) {
@@ -762,10 +774,6 @@ class SettingsViewModel(
                     processedTextItems += batch.size
                     updateTextProgress()
                 }
-                // Mark todos as synced after ALL todo batches succeed
-                if (todoIds.isNotEmpty()) {
-                    database.todoTaskDao().markAsSynced(todoIds)
-                }
 
                 val periodBatches = chunkBySize(periods, maxUploadBatchBytes)
                 for (batch in periodBatches) {
@@ -781,10 +789,6 @@ class SettingsViewModel(
                     }
                     processedTextItems += batch.size
                     updateTextProgress()
-                }
-                // Mark periods as synced after ALL period batches succeed
-                if (periodStartDates.isNotEmpty()) {
-                    database.periodDao().markAsSynced(periodStartDates)
                 }
 
                 val imageUploadCount = syncImageUploads(key, apiKey) { done, total ->
@@ -983,8 +987,7 @@ class SettingsViewModel(
                     timestamp = item.timestamp,
                     updatedAt = item.updatedAt,
                     location = payload.location,
-                    imageUris = payload.imageUris,
-                    synced = true
+                    imageUris = payload.imageUris
                 )
                 if (existing == null) {
                     database.diaryDao().insert(updatedDiary)
@@ -1011,8 +1014,7 @@ class SettingsViewModel(
                     isCompleted = item.isCompleted,
                     createdAt = item.createdAt,
                     completedAt = item.completedAt,
-                    updatedAt = item.updatedAt,
-                    synced = true
+                    updatedAt = item.updatedAt
                 )
                 if (existing == null) {
                     database.todoTaskDao().insert(updated)
@@ -1037,8 +1039,7 @@ class SettingsViewModel(
                     startDate = startDate,
                     endDate = endDate,
                     notes = payload.notes,
-                    updatedAt = item.updatedAt,
-                    synced = true
+                    updatedAt = item.updatedAt
                 )
                 if (existing == null) {
                     database.periodDao().upsert(updated)

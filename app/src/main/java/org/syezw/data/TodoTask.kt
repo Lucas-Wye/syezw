@@ -13,6 +13,5 @@ data class TodoTask(
     var isCompleted: Boolean = false,
     val createdAt: Long,
     val completedAt: Long?,
-    val updatedAt: Long = System.currentTimeMillis(),
-    val synced: Boolean = false
+    val updatedAt: Long = System.currentTimeMillis()
 )

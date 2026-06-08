@@ -31,12 +31,6 @@ interface DiaryDao {
     @Query("SELECT * FROM diary_list WHERE uuid = :uuid LIMIT 1")
     suspend fun getByUuid(uuid: String): Diary?
 
-    @Query("SELECT * FROM diary_list WHERE synced = 0 ORDER BY timestamp ASC")
-    suspend fun getUnsyncedList(): List<Diary>
-
-    @Query("UPDATE diary_list SET synced = 1 WHERE id IN (:ids)")
-    suspend fun markAsSynced(ids: List<Int>)
-
     // Optional: For more efficient batch insert during import
     @Insert(onConflict = OnConflictStrategy.IGNORE) // IGNORE if you don't want to replace based on PrimaryKey
     suspend fun insertAll(diaries: List<Diary>)

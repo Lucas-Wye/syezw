@@ -291,7 +291,7 @@ fun SettingsScreen(
             OutlinedTextField(
                 value = authorInput,
                 onValueChange = { authorInput = it },
-                label = { Text("Name") },
+                label = { Text("芳名") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -311,7 +311,7 @@ fun SettingsScreen(
                         "无效的日期格式 (YYYY-MM-DD)"
                     }
                 },
-                label = { Text("Together Date") },
+                label = { Text("在一起的日期") },
                 placeholder = { Text("e.g., 2025-04-06") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -326,14 +326,6 @@ fun SettingsScreen(
                 )
             }
 
-
-            // 添加Love背景图片功能
-            Text(
-                text = "Love Screen Background",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.fillMaxWidth()
-            )
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -342,7 +334,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Enable Background Image",
+                    text = "开启首页背景",
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Switch(
@@ -382,7 +374,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Enable Period Tracking",
+                    text = "周期记录功能",
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Switch(
@@ -398,18 +390,13 @@ fun SettingsScreen(
             }
 
             // GPS
-            Text(
-                text = "GPS Location Tracking",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.fillMaxWidth()
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Enable Background GPS",
+                    text = "GPS记录功能",
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Switch(
@@ -480,8 +467,10 @@ fun SettingsScreen(
 
                 var intervalExpanded by remember { mutableStateOf(false) }
                 val intervalLabel = when (gpsIntervalMs) {
+                        15_000L -> "15 seconds"
                         30_000L -> "30 seconds"
                         300_000L -> "5 minutes"
+                        600_000L -> "10 minutes"
                         900_000L -> "15 minutes"
                         1_800_000L -> "30 minutes"
                         3_600_000L -> "60 minutes"
@@ -505,7 +494,15 @@ fun SettingsScreen(
                                 expanded = intervalExpanded,
                                 onDismissRequest = { intervalExpanded = false }
                             ) {
-                                listOf(5_000L to "5 seconds", 10_000L to "10 seconds", 30_000L to "30 seconds", 60_000L to "1 minute", 300_000L to "5 minutes").forEach { (ms, label) ->
+                                listOf(
+                                    15_000L to "15 seconds",
+                                    30_000L to "30 seconds",
+                                    300_000L to "5 minutes",
+                                    600_000L to "10 minutes",
+                                    900_000L to "15 minutes",
+                                    1_800_000L to "30 minutes",
+                                    3_600_000L to "60 minutes",
+                                ).forEach { (ms, label) ->
                                     DropdownMenuItem(
                                         text = { Text(label) },
                                         onClick = {
@@ -648,11 +645,6 @@ fun SettingsScreen(
             }
 
             // 检查本地的日记图片
-            Text(
-                text = "Diary Image Check",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.fillMaxWidth()
-            )
             OutlinedButton(
                 onClick = {
                     val permission = Manifest.permission.READ_MEDIA_IMAGES
@@ -668,7 +660,7 @@ fun SettingsScreen(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (unusedImageState.isChecking) "检查中..." else "检查未使用图片")
+                Text(if (unusedImageState.isChecking) "检查中..." else "检查本地未使用图片")
             }
 
             Row(

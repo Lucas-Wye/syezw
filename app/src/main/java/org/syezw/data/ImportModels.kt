@@ -29,8 +29,7 @@ data class DiaryImport(
             timestamp = timestamp ?: System.currentTimeMillis(),
             updatedAt = updatedAt ?: timestamp ?: System.currentTimeMillis(),
             location = location,
-            imageUris = imageUris ?: emptyList(),
-            synced = true
+            imageUris = imageUris ?: emptyList()
         )
     }
 }
@@ -54,8 +53,7 @@ data class TodoTaskImport(
             isCompleted = isCompleted ?: false,
             createdAt = createdAt ?: System.currentTimeMillis(),
             completedAt = completedAt,
-            updatedAt = updatedAt ?: createdAt ?: System.currentTimeMillis(),
-            synced = true
+            updatedAt = updatedAt ?: createdAt ?: System.currentTimeMillis()
         )
     }
 }
@@ -73,8 +71,7 @@ data class PeriodRecordImport(
             startDate = start,
             endDate = end,
             notes = notes,
-            updatedAt = updatedAt ?: System.currentTimeMillis(),
-            synced = true
+            updatedAt = updatedAt ?: System.currentTimeMillis()
         )
     }
 }

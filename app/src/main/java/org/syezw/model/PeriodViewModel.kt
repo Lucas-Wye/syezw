@@ -42,8 +42,7 @@ data class PeriodRecord(
     @PrimaryKey val startDate: LocalDate,
     val endDate: LocalDate,
     val notes: String? = null,
-    val updatedAt: Long = System.currentTimeMillis(),
-    val synced: Boolean = false
+    val updatedAt: Long = System.currentTimeMillis()
 ) {
     val realDuration: Long
         get() = ChronoUnit.DAYS.between(startDate, endDate) + 1
@@ -142,8 +141,7 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
                     startDate = date,
                     endDate = defaultEndDate,
                     notes = notes,
-                    updatedAt = System.currentTimeMillis(),
-                    synced = false
+                    updatedAt = System.currentTimeMillis()
                 )
             )
         }
@@ -159,13 +157,13 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
             if (nextRecord != null && newEndDate.isAfter(nextRecord.startDate.minusDays(1))) {
                 return@launch
             }
-            periodDao.upsert(record.copy(endDate = newEndDate, updatedAt = System.currentTimeMillis(), synced = false))
+            periodDao.upsert(record.copy(endDate = newEndDate, updatedAt = System.currentTimeMillis()))
         }
     }
 
     fun updateRecordNotes(record: PeriodRecord, newNotes: String) {
         viewModelScope.launch {
-            periodDao.upsert(record.copy(notes = newNotes, updatedAt = System.currentTimeMillis(), synced = false))
+            periodDao.upsert(record.copy(notes = newNotes, updatedAt = System.currentTimeMillis()))
         }
     }
 
