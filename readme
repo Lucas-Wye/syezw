@@ -56,6 +56,8 @@ sdkmanager --sdk_root=D:\software\bin\android\sdk "emulator" "system-images;andr
 CREATE DATABASE $db OWNER $user ENCODING 'UTF8';
 -- 选择数据库
 \c $db 
+-- 查看当前数据库
+\c
 -- 显示数据表 
 \dt 
 -- 查看数据库
@@ -78,4 +80,6 @@ SELECT COUNT(*) FROM todo_sync;
 SELECT COUNT(*) FROM period_sync;
 SELECT COUNT(*) FROM diary_images;
 SELECT COUNT(*) FROM diary_image_refs;
+
+DROP TABLE IF EXISTS;
 ```
