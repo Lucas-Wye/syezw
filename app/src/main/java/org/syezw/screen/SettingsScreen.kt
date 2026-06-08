@@ -288,35 +288,42 @@ fun SettingsScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            OutlinedTextField(
-                value = authorInput,
-                onValueChange = { authorInput = it },
-                label = { Text("芳名") },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            OutlinedTextField(
-                value = dateTogetherInput,
-                onValueChange = {
-                    dateTogetherInput = it
-                    // Basic validation on input change
-                    dateError = try {
-                        // 日期格式应该从 ViewModel 或一个统一的地方获取
-                        // 为了简单起见，这里我们先硬编码
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
-                            isLenient = false
-                        }.parse(it)
-                        null // No error
-                    } catch (e: Exception) {
-                        "无效的日期格式 (YYYY-MM-DD)"
-                    }
-                },
-                label = { Text("在一起的日期") },
-                placeholder = { Text("e.g., 2025-04-06") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = dateError != null
-            )
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = authorInput,
+                    onValueChange = { authorInput = it },
+                    label = { Text("芳名") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = dateTogetherInput,
+                    onValueChange = {
+                        dateTogetherInput = it
+                        // Basic validation on input change
+                        dateError = try {
+                            // 日期格式应该从 ViewModel 或一个统一的地方获取
+                            // 为了简单起见，这里我们先硬编码
+                            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+                                isLenient = false
+                            }.parse(it)
+                            null // No error
+                        } catch (e: Exception) {
+                            "无效的日期格式 (YYYY-MM-DD)"
+                        }
+                    },
+                    label = { Text("在一起的日期") },
+                    placeholder = { Text("e.g., 2025-04-06") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    isError = dateError != null
+                )
+            }
+
             if (dateError != null) {
                 Text(
                     text = dateError!!,
@@ -346,7 +353,6 @@ fun SettingsScreen(
                     }
                 )
             }
-
             OutlinedButton(
                 onClick = { imagePickerLauncher.launch("image/*") },
                 modifier = Modifier.fillMaxWidth()
@@ -354,20 +360,6 @@ fun SettingsScreen(
                 Text(if (loveBgImageUri != null) "更改背景图片" else "选择背景图片")
             }
 
-            if (loveBgImageUri != null) {
-                OutlinedButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            settingsViewModel.setLoveBgImageUri(null)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("移除背景图片")
-                }
-            }
-
-            // 添加周期记录功能的开关
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -467,54 +459,54 @@ fun SettingsScreen(
 
                 var intervalExpanded by remember { mutableStateOf(false) }
                 val intervalLabel = when (gpsIntervalMs) {
-                        15_000L -> "15 seconds"
-                        30_000L -> "30 seconds"
-                        300_000L -> "5 minutes"
-                        600_000L -> "10 minutes"
-                        900_000L -> "15 minutes"
-                        1_800_000L -> "30 minutes"
-                        3_600_000L -> "60 minutes"
-                        else -> "${gpsIntervalMs / 1000} seconds"
-                    }
+                    15_000L -> "15 seconds"
+                    30_000L -> "30 seconds"
+                    300_000L -> "5 minutes"
+                    600_000L -> "10 minutes"
+                    900_000L -> "15 minutes"
+                    1_800_000L -> "30 minutes"
+                    3_600_000L -> "60 minutes"
+                    else -> "${gpsIntervalMs / 1000} seconds"
+                }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Update Interval",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Box {
-                            TextButton(onClick = { intervalExpanded = true }) {
-                                Text(intervalLabel)
-                            }
-                            DropdownMenu(
-                                expanded = intervalExpanded,
-                                onDismissRequest = { intervalExpanded = false }
-                            ) {
-                                listOf(
-                                    15_000L to "15 seconds",
-                                    30_000L to "30 seconds",
-                                    300_000L to "5 minutes",
-                                    600_000L to "10 minutes",
-                                    900_000L to "15 minutes",
-                                    1_800_000L to "30 minutes",
-                                    3_600_000L to "60 minutes",
-                                ).forEach { (ms, label) ->
-                                    DropdownMenuItem(
-                                        text = { Text(label) },
-                                        onClick = {
-                                            settingsViewModel.setGpsIntervalMs(ms)
-                                            settingsViewModel.setGpsFastestIntervalMs(ms / 2)
-                                            intervalExpanded = false
-                                        }
-                                    )
-                                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Update Interval",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Box {
+                        TextButton(onClick = { intervalExpanded = true }) {
+                            Text(intervalLabel)
+                        }
+                        DropdownMenu(
+                            expanded = intervalExpanded,
+                            onDismissRequest = { intervalExpanded = false }
+                        ) {
+                            listOf(
+                                15_000L to "15 seconds",
+                                30_000L to "30 seconds",
+                                300_000L to "5 minutes",
+                                600_000L to "10 minutes",
+                                900_000L to "15 minutes",
+                                1_800_000L to "30 minutes",
+                                3_600_000L to "60 minutes",
+                            ).forEach { (ms, label) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = {
+                                        settingsViewModel.setGpsIntervalMs(ms)
+                                        settingsViewModel.setGpsFastestIntervalMs(ms / 2)
+                                        intervalExpanded = false
+                                    }
+                                )
                             }
                         }
                     }
+                }
             }
 
             Text(
@@ -530,24 +522,29 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
-
-            OutlinedTextField(
-                value = apiKeyInput,
-                onValueChange = { apiKeyInput = it },
-                label = { Text("API Key") },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation()
-            )
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = apiKeyInput,
+                    onValueChange = { apiKeyInput = it },
+                    label = { Text("API Key") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation()
+                )
+                OutlinedTextField(
+                    value = aesPassphraseInput,
+                    onValueChange = { aesPassphraseInput = it },
+                    label = { Text("Passphrase") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation()
+                )
+            }
 
-            OutlinedTextField(
-                value = aesPassphraseInput,
-                onValueChange = { aesPassphraseInput = it },
-                label = { Text("Passphrase") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation()
-            )
             Button(
                 onClick = {
                     if (dateError == null) { // Only save if format is valid

@@ -124,7 +124,8 @@ data class SyncProgressState(
 class SettingsViewModel(
     private val application: Application,
     private val database: AppDatabase,
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val settingsManager: SettingsManager
 ) : AndroidViewModel(application) {
 
     private val gson = GsonBuilder().registerTypeAdapter(
@@ -167,13 +168,9 @@ class SettingsViewModel(
     private val _lastDownloadSummary = MutableStateFlow<String?>(null)
     val lastDownloadSummary = _lastDownloadSummary.asStateFlow()
 
-    val defaultAuthor: Flow<String> = dataStore.data.map { preferences ->
-        preferences[SettingsManager.DEFAULT_AUTHOR_KEY] ?: SettingsManager.DEFAULT_AUTHOR_VALUE
-    }
+    val defaultAuthor: Flow<String> = settingsManager.defaultAuthorFlow
 
-    val dateTogether: Flow<String> = dataStore.data.map { preferences ->
-        preferences[SettingsManager.DATE_KEY] ?: SettingsManager.DEFAULT_DATE_VALUE
-    }
+    val dateTogether: Flow<String> = settingsManager.dateFlow
 
     val tradeRecordState: Flow<TradeRecordState> = dataStore.data.map { preferences ->
         TradeJson.tradeRecordStateFromJson(preferences[PreferencesKeys.TRADE_RECORD_STATE])
@@ -195,17 +192,13 @@ class SettingsViewModel(
 
     fun updateDefaultAuthor(newAuthor: String) {
         viewModelScope.launch {
-            dataStore.edit { settings ->
-                settings[SettingsManager.DEFAULT_AUTHOR_KEY] = newAuthor
-            }
+            settingsManager.setDefaultAuthor(newAuthor)
         }
     }
 
     fun updateDate(newDate: String) {
         viewModelScope.launch {
-            dataStore.edit { settings ->
-                settings[SettingsManager.DATE_KEY] = newDate
-            }
+            settingsManager.setDate(newDate)
         }
     }
 
@@ -226,13 +219,9 @@ class SettingsViewModel(
         }
     }
 
-    val loveBgImageUri: Flow<String?> = dataStore.data.map { preferences ->
-        preferences[SettingsManager.LOVE_BG_IMAGE_URI_KEY]
-    }
+    val loveBgImageUri: Flow<String?> = settingsManager.loveBgImageUriFlow
 
-    val loveBgEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[SettingsManager.LOVE_BG_ENABLED_KEY] ?: false
-    }
+    val loveBgEnabled: Flow<Boolean> = settingsManager.loveBgEnabledFlow
 
     val gpsEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[GpsPrefKeys.GPS_ENABLED] ?: false
@@ -275,19 +264,11 @@ class SettingsViewModel(
     }
 
     suspend fun setLoveBgImageUri(uri: String?) {
-        dataStore.edit { settings ->
-            if (uri != null) {
-                settings[SettingsManager.LOVE_BG_IMAGE_URI_KEY] = uri
-            } else {
-                settings.remove(SettingsManager.LOVE_BG_IMAGE_URI_KEY)
-            }
-        }
+        settingsManager.setLoveBgImageUri(uri)
     }
 
     suspend fun setLoveBgEnabled(enabled: Boolean) {
-        dataStore.edit { settings ->
-            settings[SettingsManager.LOVE_BG_ENABLED_KEY] = enabled
-        }
+        settingsManager.setLoveBgEnabled(enabled)
     }
 
     fun setGpsEnabled(enabled: Boolean) {
@@ -1451,14 +1432,16 @@ class SettingsViewModel(
 class SettingsViewModelFactory(
     private val application: Application,
     private val database: AppDatabase,
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val settingsManager: SettingsManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST") return SettingsViewModel(
                 application,
                 database,
-                dataStore
+                dataStore,
+                settingsManager
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

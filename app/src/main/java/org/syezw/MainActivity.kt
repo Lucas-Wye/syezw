@@ -127,7 +127,7 @@ fun SyezwAppScreen() {
         factory = OurLoveViewModelFactory(settingsManager)
     )
     val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(application, database, context.dataStore)
+        factory = SettingsViewModelFactory(application, database, context.dataStore, settingsManager)
     )
     val periodViewModel: PeriodViewModel = viewModel(
         factory = PeriodViewModelFactory(database.periodDao())
