@@ -1,0 +1,16 @@
+# command
+```
+build:
+	cargo build
+
+release:
+	cargo build --release
+
+test:
+	cargo test -- --test-threads=1
+
+check:
+	cargo check
+	cargo clippy -- -D warnings
+	cargo fmt -- --check
+```

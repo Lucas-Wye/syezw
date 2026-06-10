@@ -3,6 +3,7 @@ package org.syezw
 import android.app.Application
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,9 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.datastore.preferences.core.edit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import org.syezw.data.AppDatabase
 import org.syezw.model.DiaryViewModel
 import org.syezw.model.DiaryViewModelFactory
+import org.syezw.model.GpsPrefKeys
 import org.syezw.model.PeriodViewModel
 import org.syezw.model.PeriodViewModelFactory
 import org.syezw.model.SettingsViewModel
@@ -41,14 +49,24 @@ import org.syezw.screen.PeriodTrackingScreen
 import org.syezw.screen.SettingsScreen
 import org.syezw.screen.TODOScreen
 import org.syezw.screen.TradeRecordScreen
+import org.syezw.service.LocationService
 import org.syezw.ui.theme.SyezwTheme
+import org.syezw.worker.GpsWorker
 
 val Context.dataStore by preferencesDataStore(name = "settings")
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        private const val TAG = "MainActivity"
+    }
+
+    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        handleGpsStateOnRestart()
 
         // Schedule periodic backup (every 30 days)
         val backupRequest = androidx.work.PeriodicWorkRequestBuilder<org.syezw.worker.BackupWorker>(
@@ -64,6 +82,25 @@ class MainActivity : ComponentActivity() {
         setContent {
             SyezwTheme {
                 SyezwAppScreen()
+            }
+        }
+    }
+
+    private fun handleGpsStateOnRestart() {
+        mainScope.launch {
+            try {
+                val prefs = dataStore.data.first()
+                val gpsEnabled = prefs[GpsPrefKeys.GPS_ENABLED] ?: false
+
+                if (gpsEnabled) {
+                    // Log.d(TAG, "Foreground GPS was active on restart. Resetting to disabled.")
+                    dataStore.edit { settings ->
+                        settings[GpsPrefKeys.GPS_ENABLED] = false
+                    }
+                    LocationService.stop(this@MainActivity)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error handling GPS state on restart", e)
             }
         }
     }
@@ -90,7 +127,7 @@ fun SyezwAppScreen() {
         factory = OurLoveViewModelFactory(settingsManager)
     )
     val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(application, database, context.dataStore)
+        factory = SettingsViewModelFactory(application, database, context.dataStore, settingsManager)
     )
     val periodViewModel: PeriodViewModel = viewModel(
         factory = PeriodViewModelFactory(database.periodDao())

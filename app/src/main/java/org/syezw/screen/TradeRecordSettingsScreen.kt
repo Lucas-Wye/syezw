@@ -89,17 +89,47 @@ fun TradeSettingsScreen(
         ) {
             Text("交易记录设置", style = MaterialTheme.typography.titleMedium)
 
-            OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("标题") })
-            OutlinedTextField(value = accountMasked, onValueChange = { accountMasked = it }, label = { Text("账户展示") })
-            OutlinedTextField(value = stockName, onValueChange = { stockName = it }, label = { Text("股票名称") })
-            OutlinedTextField(value = recordStockCode, onValueChange = { recordStockCode = it }, label = { Text("股票代码") })
-            OutlinedTextField(value = stockPrice, onValueChange = { stockPrice = it }, label = { Text("股票价格") })
-            OutlinedTextField(value = stockChangePercent, onValueChange = { stockChangePercent = it }, label = { Text("涨跌幅") })
-            OutlinedTextField(value = referenceProfit, onValueChange = { referenceProfit = it }, label = { Text("参考盈亏") })
-            OutlinedTextField(value = referenceProfitPercent, onValueChange = { referenceProfitPercent = it }, label = { Text("盈亏比例") })
-            OutlinedTextField(value = holdDays, onValueChange = { holdDays = it }, label = { Text("持仓天数") })
-            OutlinedTextField(value = buyTimes, onValueChange = { buyTimes = it }, label = { Text("买入次数") })
-            OutlinedTextField(value = sellTimes, onValueChange = { sellTimes = it }, label = { Text("卖出次数") })
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(modifier = Modifier.weight(1f), value = title, onValueChange = { title = it }, label = { Text("标题") })
+                OutlinedTextField(modifier = Modifier.weight(1f), value = accountMasked, onValueChange = { accountMasked = it }, label = { Text("账户展示") })
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(modifier = Modifier.weight(1f), value = stockName, onValueChange = { stockName = it }, label = { Text("股票名称") })
+                OutlinedTextField(modifier = Modifier.weight(1f), value = recordStockCode, onValueChange = { recordStockCode = it }, label = { Text("股票代码") })
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(modifier = Modifier.weight(1f), value = stockPrice, onValueChange = { stockPrice = it }, label = { Text("股票价格") })
+                OutlinedTextField(modifier = Modifier.weight(1f), value = stockChangePercent, onValueChange = { stockChangePercent = it }, label = { Text("涨跌幅") })
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(modifier = Modifier.weight(1f), value = referenceProfit, onValueChange = { referenceProfit = it }, label = { Text("参考盈亏") })
+                OutlinedTextField(modifier = Modifier.weight(1f), value = referenceProfitPercent, onValueChange = { referenceProfitPercent = it }, label = { Text("盈亏比例") })
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(modifier = Modifier.weight(1f), value = holdDays, onValueChange = { holdDays = it }, label = { Text("持仓天数") })
+                OutlinedTextField(modifier = Modifier.weight(1f), value = buyTimes, onValueChange = { buyTimes = it }, label = { Text("买入次数") })
+                OutlinedTextField(modifier = Modifier.weight(1f), value = sellTimes, onValueChange = { sellTimes = it }, label = { Text("卖出次数") })
+            }
 
             Text("历史交易", style = MaterialTheme.typography.titleSmall)
             RecordEditor(
@@ -283,9 +313,7 @@ private fun RecordEditor(
                             label = { Text("数量") },
                             modifier = Modifier.weight(1f)
                         )
-                    }
-                    if (showFee) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (showFee) {
                             OutlinedTextField(
                                 value = record.fee,
                                 onValueChange = { value ->

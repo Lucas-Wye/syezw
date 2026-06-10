@@ -3,7 +3,9 @@ package org.syezw.model
 import android.app.Application
 import android.content.ContentValues
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -15,7 +17,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
@@ -36,7 +40,9 @@ import org.syezw.data.AppDatabase
 import org.syezw.data.Diary
 import org.syezw.data.TodoTask
 import org.syezw.model.PeriodRecord
+import org.syezw.preference.SettingsManager
 import org.syezw.worker.BackupWorker
+import org.syezw.worker.GpsWorker
 import org.syezw.util.DIARY_IMAGES_FOLDER
 import org.syezw.util.diaryImagesRelativePath
 import org.syezw.util.resolvePathFromDownloadsRelativePath
@@ -47,13 +53,14 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import android.provider.MediaStore
 import android.os.Environment
+import java.io.IOException
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
 import org.syezw.sync.DiaryImageSyncItem
 import org.syezw.sync.DiaryImageRefItem
 import org.syezw.sync.DiaryPayload
@@ -117,7 +124,8 @@ data class SyncProgressState(
 class SettingsViewModel(
     private val application: Application,
     private val database: AppDatabase,
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val settingsManager: SettingsManager
 ) : AndroidViewModel(application) {
 
     private val gson = GsonBuilder().registerTypeAdapter(
@@ -131,13 +139,9 @@ class SettingsViewModel(
             }).create()
 
     private object PreferencesKeys {
-        val DEFAULT_AUTHOR = stringPreferencesKey("default_author")
-        val DATE_TOGETHER = stringPreferencesKey("date_together")
         val PERIOD_TRACKING_ENABLED = booleanPreferencesKey("period_tracking_enabled")
         val PERIOD_DATA = stringPreferencesKey("period_data_json")
         val TRADE_RECORD_STATE = stringPreferencesKey("trade_record_state_json")
-        val LOVE_BG_IMAGE_URI = stringPreferencesKey("love_bg_image_uri")
-        val LOVE_BG_ENABLED = booleanPreferencesKey("love_bg_enabled")
         val REMOTE_API_BASE_URL = stringPreferencesKey("remote_api_base_url")
         val REMOTE_API_KEY = stringPreferencesKey("remote_api_key")
         val AES_PASSPHRASE = stringPreferencesKey("aes_passphrase")
@@ -164,13 +168,9 @@ class SettingsViewModel(
     private val _lastDownloadSummary = MutableStateFlow<String?>(null)
     val lastDownloadSummary = _lastDownloadSummary.asStateFlow()
 
-    val defaultAuthor: Flow<String> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.DEFAULT_AUTHOR] ?: "syezw"
-    }
+    val defaultAuthor: Flow<String> = settingsManager.defaultAuthorFlow
 
-    val dateTogether: Flow<String> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.DATE_TOGETHER] ?: "2025-04-06"
-    }
+    val dateTogether: Flow<String> = settingsManager.dateFlow
 
     val tradeRecordState: Flow<TradeRecordState> = dataStore.data.map { preferences ->
         TradeJson.tradeRecordStateFromJson(preferences[PreferencesKeys.TRADE_RECORD_STATE])
@@ -192,17 +192,13 @@ class SettingsViewModel(
 
     fun updateDefaultAuthor(newAuthor: String) {
         viewModelScope.launch {
-            dataStore.edit { settings ->
-                settings[PreferencesKeys.DEFAULT_AUTHOR] = newAuthor
-            }
+            settingsManager.setDefaultAuthor(newAuthor)
         }
     }
 
     fun updateDate(newDate: String) {
         viewModelScope.launch {
-            dataStore.edit { settings ->
-                settings[PreferencesKeys.DATE_TOGETHER] = newDate
-            }
+            settingsManager.setDate(newDate)
         }
     }
 
@@ -223,12 +219,28 @@ class SettingsViewModel(
         }
     }
 
-    val loveBgImageUri: Flow<String?> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.LOVE_BG_IMAGE_URI]
+    val loveBgImageUri: Flow<String?> = settingsManager.loveBgImageUriFlow
+
+    val loveBgEnabled: Flow<Boolean> = settingsManager.loveBgEnabledFlow
+
+    val gpsEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_ENABLED] ?: false
     }
 
-    val loveBgEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.LOVE_BG_ENABLED] ?: false
+    val gpsPriority: Flow<String> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_PRIORITY] ?: "balanced"
+    }
+
+    val gpsIntervalMs: Flow<Long> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_INTERVAL_MS]?.toLongOrNull() ?: 10_000L
+    }
+
+    val gpsFastestIntervalMs: Flow<Long> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS]?.toLongOrNull() ?: 5_000L
+    }
+
+    val gpsWorkmanagerStartTime: Flow<Long> = dataStore.data.map { preferences ->
+        preferences[GpsPrefKeys.GPS_WORKMANAGER_START_TIME]?.toLongOrNull() ?: 0L
     }
 
     val remoteApiBaseUrl: Flow<String> = dataStore.data.map { preferences ->
@@ -252,18 +264,115 @@ class SettingsViewModel(
     }
 
     suspend fun setLoveBgImageUri(uri: String?) {
-        dataStore.edit { settings ->
-            if (uri != null) {
-                settings[PreferencesKeys.LOVE_BG_IMAGE_URI] = uri
-            } else {
-                settings.remove(PreferencesKeys.LOVE_BG_IMAGE_URI)
+        settingsManager.setLoveBgImageUri(uri)
+    }
+
+    suspend fun setLoveBgEnabled(enabled: Boolean) {
+        settingsManager.setLoveBgEnabled(enabled)
+    }
+
+    fun setGpsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_ENABLED] = enabled
             }
         }
     }
 
-    suspend fun setLoveBgEnabled(enabled: Boolean) {
-        dataStore.edit { settings ->
-            settings[PreferencesKeys.LOVE_BG_ENABLED] = enabled
+    fun setGpsPriority(priority: String) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_PRIORITY] = priority
+            }
+        }
+    }
+
+    fun setGpsIntervalMs(intervalMs: Long) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_INTERVAL_MS] = intervalMs.toString()
+            }
+        }
+    }
+
+    fun setGpsFastestIntervalMs(intervalMs: Long) {
+        viewModelScope.launch {
+            dataStore.edit { settings ->
+                settings[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS] = intervalMs.toString()
+            }
+        }
+    }
+
+    fun exportGpsData() {
+        viewModelScope.launch(Dispatchers.IO) {
+            suspend fun showToast(message: String, long: Boolean = true) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        application,
+                        message,
+                        if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
+            val locations = try {
+                database.gpsLocationDao().getAllList()
+            } catch (e: SQLiteException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            } catch (e: IllegalStateException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            }
+            if (locations.isEmpty()) {
+                showToast("暂无GPS数据可导出", long = false)
+                return@launch
+            }
+            val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+            val fileName = "syezw_gps_${sdf.format(java.util.Date())}.csv"
+            val lineSdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+            val sb = StringBuilder()
+            sb.appendLine("latitude,longitude,accuracy,altitude,speed,timestamp,endtime,author")
+            for (loc in locations) {
+                val ts = lineSdf.format(java.util.Date(loc.timestamp))
+                val endTs = loc.endTimestamp?.let { lineSdf.format(java.util.Date(it)) } ?: ""
+                sb.appendLine(
+                    "${loc.latitude},${loc.longitude},${loc.accuracy ?: ""},${loc.altitude ?: ""},${loc.speed ?: ""},${ts},${endTs},${loc.author}"
+                )
+            }
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, "text/csv")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            }
+            val uri = try {
+                application.contentResolver.insert(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    values
+                )
+            } catch (e: SecurityException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            }
+            if (uri == null) {
+                showToast("导出失败：无法创建文件")
+                return@launch
+            }
+            try {
+                application.contentResolver.openOutputStream(uri)?.use { output ->
+                    output.write(sb.toString().toByteArray(Charsets.UTF_8))
+                } ?: run {
+                    showToast("导出失败：无法写入文件")
+                    return@launch
+                }
+            } catch (e: IOException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            } catch (e: SecurityException) {
+                showToast("导出失败: ${e.message}")
+                return@launch
+            }
+            showToast("GPS数据已导出到下载目录")
         }
     }
 
@@ -533,13 +642,20 @@ class SettingsViewModel(
                 appendSyncLog("upload", true, "开始上传")
                 val key = deriveAesKeyFromPassphrase(passphrase)
                 setUploadProgress(true, 10, "检查差异")
-                val metaResponse = fetchRemoteMeta(apiBaseUrl, apiKey)
-                val remoteDiaryMap = metaResponse?.diaries?.associateBy({ it.uuid }, { it.updatedAt }) ?: emptyMap()
-                val remoteTodoMap = metaResponse?.todos?.associateBy({ it.uuid }, { it.updatedAt }) ?: emptyMap()
-                val remotePeriodMap = metaResponse?.periods?.associateBy({ it.startDate }, { it.updatedAt }) ?: emptyMap()
 
+                // 获取服务器元数据，对比后只上传服务端缺失或更新的数据
+                val serverMeta = fetchRemoteMeta(apiBaseUrl, apiKey)
+                val serverDiaryMeta = serverMeta?.diaries?.associateBy { it.uuid } ?: emptyMap()
+                val serverTodoMeta = serverMeta?.todos?.associateBy { it.uuid } ?: emptyMap()
+                val serverPeriodMeta = serverMeta?.periods?.associateBy { it.startDate } ?: emptyMap()
+
+                val diaryIds = mutableListOf<Int>()
                 val diaries = database.diaryDao().getAllEntriesList()
-                    .filter { it.updatedAt > (remoteDiaryMap[it.uuid] ?: -1L) }
+                    .filter { diary ->
+                        val server = serverDiaryMeta[diary.uuid]
+                        server == null || diary.updatedAt > server.updatedAt
+                    }
+                    .also { diaryIds.addAll(it.map { d -> d.id }) }
                     .map { diary ->
                     val payload = DiaryPayload(
                         content = diary.content,
@@ -557,8 +673,13 @@ class SettingsViewModel(
                     )
                 }
 
+                val todoIds = mutableListOf<Int>()
                 val todos = database.todoTaskDao().getAllTasksList()
-                    .filter { it.updatedAt > (remoteTodoMap[it.uuid] ?: -1L) }
+                    .filter { task ->
+                        val server = serverTodoMeta[task.uuid]
+                        server == null || task.updatedAt > server.updatedAt
+                    }
+                    .also { todoIds.addAll(it.map { t -> t.id }) }
                     .map { task ->
                     val payload = TodoPayload(name = task.name)
                     val payloadJson = gson.toJson(payload)
@@ -573,8 +694,13 @@ class SettingsViewModel(
                     )
                 }
 
+                val periodStartDates = mutableListOf<Long>()
                 val periods = database.periodDao().getAllRecords().first()
-                    .filter { it.updatedAt > (remotePeriodMap[it.startDate.toString()] ?: -1L) }
+                    .filter { record ->
+                        val server = serverPeriodMeta[record.startDate.toString()]
+                        server == null || record.updatedAt > server.updatedAt
+                    }
+                    .also { periodStartDates.addAll(it.map { p -> p.startDate.toEpochDay() }) }
                     .map { record ->
                     val payload = PeriodPayload(notes = record.notes)
                     val payloadJson = gson.toJson(payload)
@@ -650,6 +776,7 @@ class SettingsViewModel(
                     val percent = if (total == 0) 100 else 80 + (done * 20 / total)
                     setUploadProgress(true, percent, "上传图片 ${done}/${total}")
                 }
+
                 val summary = SyncCountSummary(
                     diaries = diaries.size,
                     todos = todos.size,
@@ -1041,6 +1168,9 @@ class SettingsViewModel(
         var uploadedCount = 0
         val totalImages = imagesToUpload.size
         onProgress(0, totalImages)
+
+        val uploadErrors = mutableListOf<String>()
+
         // Batch image uploads to avoid huge single requests
         val imageBatches = chunkBySize(imagesToUpload, maxUploadBatchBytes)
         for (batch in imageBatches) {
@@ -1053,10 +1183,13 @@ class SettingsViewModel(
                 .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    appendSyncLog("image_upload", false, "图片上传失败: ${response.code}")
+                    val errorMsg = "图片上传失败: HTTP ${response.code}"
+                    appendSyncLog("image_upload", false, errorMsg)
+                    uploadErrors.add(errorMsg)
+                } else {
+                    uploadedCount += batch.size
                 }
             }
-            uploadedCount += batch.size
             onProgress(uploadedCount, totalImages)
         }
 
@@ -1070,10 +1203,19 @@ class SettingsViewModel(
                 .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    appendSyncLog("image_upload", false, "图片引用更新失败: ${response.code}")
+                    val errorMsg = "图片引用更新失败: HTTP ${response.code}"
+                    appendSyncLog("image_upload", false, errorMsg)
+                    uploadErrors.add(errorMsg)
                 }
             }
         }
+
+        // Throw exception if any image uploads failed
+        if (uploadErrors.isNotEmpty()) {
+            val errorSummary = uploadErrors.joinToString("; ")
+            throw Exception("图片上传失败，数据已部分上传: $errorSummary")
+        }
+
         return uploadedCount
     }
 
@@ -1290,14 +1432,16 @@ class SettingsViewModel(
 class SettingsViewModelFactory(
     private val application: Application,
     private val database: AppDatabase,
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val settingsManager: SettingsManager
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST") return SettingsViewModel(
                 application,
                 database,
-                dataStore
+                dataStore,
+                settingsManager
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

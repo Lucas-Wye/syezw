@@ -267,6 +267,7 @@ private fun PeriodRecordItem(
     onEditNotesClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy年M月d日")
     Row(
         modifier = Modifier
@@ -303,13 +304,36 @@ private fun PeriodRecordItem(
         IconButton(onClick = onEditNotesClick, modifier = Modifier.size(36.dp)) {
             Icon(Icons.Default.Edit, contentDescription = "编辑备注")
         }
-        IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+        IconButton(onClick = { showDeleteConfirmDialog = true }, modifier = Modifier.size(36.dp)) {
             Icon(
                 Icons.Default.Delete,
                 contentDescription = "删除记录",
                 tint = MaterialTheme.colorScheme.error
             )
         }
+    }
+
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("Confirm Delete") },
+            text = {
+                Text(
+                    "Are you sure you want to delete this record \"${record.startDate.format(DateTimeFormatter.ofPattern("yyyy年M月d日"))}\"?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteConfirmDialog = false
+                    }
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

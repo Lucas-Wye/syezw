@@ -4,6 +4,10 @@ $env:http_proxy = "http://127.0.0.1:7897"
 $env:https_proxy = "http://127.0.0.1:7897"
 $env:JAVA_TOOL_OPTIONS='-DproxySet=true -DproxyHost=127.0.0.1 -DproxyPort=7897'
 
+set http_proxy=http://127.0.0.1:7897
+set https_proxy=http://127.0.0.1:7897
+set JAVA_TOOL_OPTIONS='-DproxySet=true -DproxyHost=127.0.0.1 -DproxyPort=7897'
+
 .\gradlew test
 .\gradlew compileDebugSources
 .\gradlew assembleDebug
@@ -24,6 +28,11 @@ $env:RELEASE_STORE_FILE="release.keystore"
 $env:RELEASE_STORE_PASSWORD="syezw2025"
 $env:RELEASE_KEY_ALIAS="syezw_release"
 $env:RELEASE_KEY_PASSWORD="syezw2025"
+
+set RELEASE_STORE_FILE=release.keystore
+set RELEASE_STORE_PASSWORD=syezw2025
+set RELEASE_KEY_ALIAS=syezw_release
+set RELEASE_KEY_PASSWORD=syezw2025
 ```
 .\gradlew compileReleaseSources
 .\gradlew assembleRelease
@@ -39,21 +48,38 @@ sdkmanager --sdk_root=D:\software\bin\android\sdk "emulator" "system-images;andr
 
 # DB
 ```
-DELETE FROM diary_image_refs;
-DELETE FROM diary_images;
+-- 列出所有用户及其角色
+\du
+-- 显示更详细的用户权限信息
+\du+
+-- 创建数据库
+CREATE DATABASE $db OWNER $user ENCODING 'UTF8';
+-- 选择数据库
+\c $db 
+-- 查看当前数据库
+\c
+-- 显示数据表 
+\dt 
+-- 查看数据库
+\l
+
 DELETE FROM diary_sync;
-DELETE FROM period_sync;
 DELETE FROM todo_sync;
+DELETE FROM period_sync;
+DELETE FROM diary_images;
+DELETE FROM diary_image_refs;
 
-SELECT * FROM diary_image_refs;
-SELECT * FROM diary_images;
 SELECT * FROM diary_sync;
-SELECT * FROM period_sync;
 SELECT * FROM todo_sync;
+SELECT * FROM period_sync;
+SELECT * FROM diary_images;
+SELECT * FROM diary_image_refs;
 
-SELECT COUNT(*) FROM diary_image_refs;
-SELECT COUNT(*) FROM diary_images;
 SELECT COUNT(*) FROM diary_sync;
-SELECT COUNT(*) FROM period_sync;
 SELECT COUNT(*) FROM todo_sync;
+SELECT COUNT(*) FROM period_sync;
+SELECT COUNT(*) FROM diary_images;
+SELECT COUNT(*) FROM diary_image_refs;
+
+DROP TABLE IF EXISTS;
 ```
