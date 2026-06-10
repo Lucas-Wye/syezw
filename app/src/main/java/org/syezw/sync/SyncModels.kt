@@ -45,7 +45,6 @@ data class PeriodSyncItem(
     val payload: EncryptedBlob
 )
 
-
 data class DiaryImageSyncItem(
     val fileName: String,
     val diaryUuid: String,
