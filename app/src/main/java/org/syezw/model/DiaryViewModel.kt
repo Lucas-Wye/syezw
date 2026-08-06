@@ -30,9 +30,9 @@ import org.syezw.util.normalizeDiaryImageName
 import org.syezw.util.resolveDiaryImagePath
 import java.io.BufferedReader
 import java.io.File
-import java.io.InputStream
-import java.io.FileOutputStream
 import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.InputStream
 import java.io.InputStreamReader
 import java.lang.reflect.Type
 import java.security.MessageDigest
@@ -134,7 +134,8 @@ class DiaryViewModel(
                 }
 
                 val listType: Type = object : TypeToken<List<DiaryImport>>() {}.type
-                val importedDiaries: List<DiaryImport> = gson.fromJson(jsonString.toString(), listType)
+                val importedDiaries: List<DiaryImport> =
+                    gson.fromJson(jsonString.toString(), listType)
 
                 if (importedDiaries.isEmpty()) {
                     withContext(Dispatchers.Main) {
@@ -156,7 +157,7 @@ class DiaryViewModel(
                 for (importedDiary in importedDiaries) {
                     // Convert to Diary with proper defaults
                     val diary = importedDiary.toDiary()
-                    
+
                     // Check for duplicates by content and timestamp
                     val isDuplicate = existingDiaries.any { existing ->
                         existing.content == diary.content && existing.timestamp == diary.timestamp

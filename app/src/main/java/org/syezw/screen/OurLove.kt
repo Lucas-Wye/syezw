@@ -114,7 +114,7 @@ fun OurLove(
             val targetMonth = components?.second ?: 4
             val targetDay = components?.third ?: 6
             val num_year = todayYear - (components?.first ?: 2025)
-            
+
             if (todayMonth == targetMonth && todayDay == targetDay) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(

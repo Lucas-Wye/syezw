@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -22,8 +21,8 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -59,7 +58,11 @@ fun TradeSettingsScreen(
     var stockPrice by remember(tradeState.stockPrice) { mutableStateOf(tradeState.stockPrice) }
     var stockChangePercent by remember(tradeState.stockChangePercent) { mutableStateOf(tradeState.stockChangePercent) }
     var referenceProfit by remember(tradeState.referenceProfit) { mutableStateOf(tradeState.referenceProfit) }
-    var referenceProfitPercent by remember(tradeState.referenceProfitPercent) { mutableStateOf(tradeState.referenceProfitPercent) }
+    var referenceProfitPercent by remember(tradeState.referenceProfitPercent) {
+        mutableStateOf(
+            tradeState.referenceProfitPercent
+        )
+    }
     var holdDays by remember(tradeState.holdDays) { mutableStateOf(tradeState.holdDays) }
     var buyTimes by remember(tradeState.buyTimes) { mutableStateOf(tradeState.buyTimes) }
     var sellTimes by remember(tradeState.sellTimes) { mutableStateOf(tradeState.sellTimes) }
@@ -94,41 +97,85 @@ fun TradeSettingsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(modifier = Modifier.weight(1f), value = title, onValueChange = { title = it }, label = { Text("标题") })
-                OutlinedTextField(modifier = Modifier.weight(1f), value = accountMasked, onValueChange = { accountMasked = it }, label = { Text("账户展示") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("标题") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = accountMasked,
+                    onValueChange = { accountMasked = it },
+                    label = { Text("账户展示") })
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(modifier = Modifier.weight(1f), value = stockName, onValueChange = { stockName = it }, label = { Text("股票名称") })
-                OutlinedTextField(modifier = Modifier.weight(1f), value = recordStockCode, onValueChange = { recordStockCode = it }, label = { Text("股票代码") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = stockName,
+                    onValueChange = { stockName = it },
+                    label = { Text("股票名称") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = recordStockCode,
+                    onValueChange = { recordStockCode = it },
+                    label = { Text("股票代码") })
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(modifier = Modifier.weight(1f), value = stockPrice, onValueChange = { stockPrice = it }, label = { Text("股票价格") })
-                OutlinedTextField(modifier = Modifier.weight(1f), value = stockChangePercent, onValueChange = { stockChangePercent = it }, label = { Text("涨跌幅") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = stockPrice,
+                    onValueChange = { stockPrice = it },
+                    label = { Text("股票价格") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = stockChangePercent,
+                    onValueChange = { stockChangePercent = it },
+                    label = { Text("涨跌幅") })
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(modifier = Modifier.weight(1f), value = referenceProfit, onValueChange = { referenceProfit = it }, label = { Text("参考盈亏") })
-                OutlinedTextField(modifier = Modifier.weight(1f), value = referenceProfitPercent, onValueChange = { referenceProfitPercent = it }, label = { Text("盈亏比例") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = referenceProfit,
+                    onValueChange = { referenceProfit = it },
+                    label = { Text("参考盈亏") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = referenceProfitPercent,
+                    onValueChange = { referenceProfitPercent = it },
+                    label = { Text("盈亏比例") })
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(modifier = Modifier.weight(1f), value = holdDays, onValueChange = { holdDays = it }, label = { Text("持仓天数") })
-                OutlinedTextField(modifier = Modifier.weight(1f), value = buyTimes, onValueChange = { buyTimes = it }, label = { Text("买入次数") })
-                OutlinedTextField(modifier = Modifier.weight(1f), value = sellTimes, onValueChange = { sellTimes = it }, label = { Text("卖出次数") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = holdDays,
+                    onValueChange = { holdDays = it },
+                    label = { Text("持仓天数") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = buyTimes,
+                    onValueChange = { buyTimes = it },
+                    label = { Text("买入次数") })
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = sellTimes,
+                    onValueChange = { sellTimes = it },
+                    label = { Text("卖出次数") })
             }
 
             Text("历史交易", style = MaterialTheme.typography.titleSmall)
@@ -233,7 +280,11 @@ private fun RecordEditor(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (records.isEmpty()) {
-            Text("暂无记录", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "暂无记录",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         records.forEachIndexed { index, record ->
             Card(modifier = Modifier.fillMaxWidth()) {
@@ -254,7 +305,11 @@ private fun RecordEditor(
                         IconButton(onClick = {
                             onChange(records.toMutableList().also { it.removeAt(index) })
                         }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = "删除",
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                     Row(
@@ -292,7 +347,10 @@ private fun RecordEditor(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         OutlinedTextField(
                             value = record.price,
                             onValueChange = { value ->

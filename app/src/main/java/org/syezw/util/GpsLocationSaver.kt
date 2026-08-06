@@ -41,7 +41,8 @@ object GpsLocationSaver {
                 sample.longitude
             )
             if (distance < GpsDistanceUtils.DEFAULT_DISTANCE_THRESHOLD_M) {
-                val nextEndTimestamp = maxOf(lastLocation.endTimestamp ?: lastLocation.timestamp, sample.timestamp)
+                val nextEndTimestamp =
+                    maxOf(lastLocation.endTimestamp ?: lastLocation.timestamp, sample.timestamp)
                 dao.updateEndTime(lastLocation.id, nextEndTimestamp)
                 return
             }

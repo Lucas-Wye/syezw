@@ -16,10 +16,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.syezw.preference.SettingsManager
 import org.syezw.data.TodoTask
 import org.syezw.data.TodoTaskDao
 import org.syezw.data.TodoTaskImport
+import org.syezw.preference.SettingsManager
 import java.io.BufferedReader
 import java.io.FileOutputStream
 import java.io.InputStreamReader
@@ -65,7 +65,7 @@ class TodoViewModel(
         viewModelScope.launch {
             todoTaskDao.getAll().collect { tasks -> // Using getAll() from your Dao
                 val sortedTasks = sortTodoTasks(tasks)
-                
+
                 _uiState.update { currentState ->
                     val filteredTasks = applySearch(sortedTasks, currentState.searchQuery)
                     currentState.copy(
@@ -76,7 +76,7 @@ class TodoViewModel(
             }
         }
     }
-    
+
     private fun applySearch(tasks: List<TodoTask>, searchQuery: String): List<TodoTask> {
         if (searchQuery.isBlank()) {
             return tasks
@@ -86,7 +86,7 @@ class TodoViewModel(
             task.name.lowercase().contains(query)
         }
     }
-    
+
     fun setSearchQuery(query: String) {
         _uiState.update { currentState ->
             val filteredTasks = applySearch(currentState.allTasks, query)
@@ -158,7 +158,8 @@ class TodoViewModel(
                 }
 
                 val listType: Type = object : TypeToken<List<TodoTaskImport>>() {}.type
-                val importedTasks: List<TodoTaskImport> = gson.fromJson(jsonString.toString(), listType)
+                val importedTasks: List<TodoTaskImport> =
+                    gson.fromJson(jsonString.toString(), listType)
 
                 if (importedTasks.isEmpty()) {
                     withContext(Dispatchers.Main) {
@@ -175,7 +176,7 @@ class TodoViewModel(
                 for (importedTask in importedTasks) {
                     // Convert to TodoTask with proper defaults
                     val task = importedTask.toTodoTask()
-                    
+
                     // Check for duplicates by name and createdAt
                     val isDuplicate = existingTasks.any { existing ->
                         existing.name == task.name && existing.createdAt == task.createdAt

@@ -88,7 +88,7 @@ dependencies {
 
     implementation(libs.gson)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    
+
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
 

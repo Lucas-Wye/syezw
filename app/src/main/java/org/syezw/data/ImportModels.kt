@@ -1,7 +1,7 @@
 package org.syezw.data
 
-import java.time.LocalDate
 import org.syezw.model.PeriodRecord
+import java.time.LocalDate
 
 /**
  * Data classes for importing from JSON files.

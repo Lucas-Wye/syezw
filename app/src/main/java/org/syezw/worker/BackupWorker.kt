@@ -14,12 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.syezw.data.AppDatabase
+import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.io.File
-import java.io.FileOutputStream
-import java.io.OutputStream
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 

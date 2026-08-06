@@ -22,9 +22,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -51,7 +51,6 @@ import org.syezw.screen.TODOScreen
 import org.syezw.screen.TradeRecordScreen
 import org.syezw.service.LocationService
 import org.syezw.ui.theme.SyezwTheme
-import org.syezw.worker.GpsWorker
 
 val Context.dataStore by preferencesDataStore(name = "settings")
 
@@ -127,7 +126,12 @@ fun SyezwAppScreen() {
         factory = OurLoveViewModelFactory(settingsManager)
     )
     val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(application, database, context.dataStore, settingsManager)
+        factory = SettingsViewModelFactory(
+            application,
+            database,
+            context.dataStore,
+            settingsManager
+        )
     )
     val periodViewModel: PeriodViewModel = viewModel(
         factory = PeriodViewModelFactory(database.periodDao())
@@ -194,13 +198,13 @@ fun SyezwAppScreen() {
                         viewModel = periodViewModel, modifier = screenModifier
                     )
 
-                AppDestinations.SETTINGS -> SettingsScreen(
-                    settingsViewModel = settingsViewModel,
-                    modifier = screenModifier,
-                    onOpenTradeRecord = { showTradeRecordScreen = true }
-                )
+                    AppDestinations.SETTINGS -> SettingsScreen(
+                        settingsViewModel = settingsViewModel,
+                        modifier = screenModifier,
+                        onOpenTradeRecord = { showTradeRecordScreen = true }
+                    )
+                }
             }
         }
     }
-}
 }

@@ -131,9 +131,11 @@ class GpsLocationSaverTest {
             locations.forEach { insert(it) }
         }
 
-        override fun getAll(): Flow<List<GpsLocation>> = flowOf(locations.sortedByDescending { it.timestamp })
+        override fun getAll(): Flow<List<GpsLocation>> =
+            flowOf(locations.sortedByDescending { it.timestamp })
 
-        override suspend fun getAllList(): List<GpsLocation> = locations.sortedByDescending { it.timestamp }
+        override suspend fun getAllList(): List<GpsLocation> =
+            locations.sortedByDescending { it.timestamp }
 
         override suspend fun getByTimeRange(startTime: Long, endTime: Long): List<GpsLocation> {
             return locations.filter { it.timestamp in startTime..endTime }.sortedBy { it.timestamp }

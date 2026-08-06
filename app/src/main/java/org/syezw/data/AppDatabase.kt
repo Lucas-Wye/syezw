@@ -9,7 +9,11 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import org.syezw.model.PeriodRecord
 
-@Database(entities = [Diary::class, TodoTask::class, PeriodRecord::class, GpsLocation::class], version = 4, exportSchema = false)
+@Database(
+    entities = [Diary::class, TodoTask::class, PeriodRecord::class, GpsLocation::class],
+    version = 4,
+    exportSchema = false
+)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
@@ -42,7 +46,8 @@ abstract class AppDatabase : RoomDatabase() {
 
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS gps_locations (
                         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                         latitude REAL NOT NULL,
@@ -53,7 +58,8 @@ abstract class AppDatabase : RoomDatabase() {
                         timestamp INTEGER NOT NULL,
                         author TEXT NOT NULL DEFAULT ''
                     )
-                """)
+                """
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_gps_locations_timestamp ON gps_locations(timestamp)")
                 db.execSQL("ALTER TABLE gps_locations ADD COLUMN endTimestamp INTEGER")
                 db.execSQL("UPDATE gps_locations SET endTimestamp = timestamp WHERE endTimestamp IS NULL")

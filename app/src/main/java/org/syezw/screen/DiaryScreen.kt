@@ -6,10 +6,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,9 +28,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -56,11 +56,11 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -428,7 +428,11 @@ fun DiaryEntryItem(
                             contentDescription = "Diary thumbnail",
                             modifier = Modifier
                                 .size(56.dp)
-                                .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small),
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outline,
+                                    MaterialTheme.shapes.small
+                                ),
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -780,7 +784,9 @@ fun DiaryDetailDialog(entry: Diary, settingsViewModel: SettingsViewModel, onDism
                         val normalizedName = org.syezw.util.normalizeDiaryImageName(path)
                         val localFile = resolveDiaryImageFile(path)
                         val targetFile =
-                            if (localFile.exists()) localFile else resolveDiaryImageFile(normalizedName)
+                            if (localFile.exists()) localFile else resolveDiaryImageFile(
+                                normalizedName
+                            )
                         if (!targetFile.exists()) {
                             LaunchedEffect(normalizedName) {
                                 settingsViewModel.fetchImageFromRemote(entry.uuid, normalizedName)

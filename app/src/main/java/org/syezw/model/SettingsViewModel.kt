@@ -5,7 +5,8 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteException
 import android.net.Uri
-import android.util.Log
+import android.os.Environment
+import android.provider.MediaStore
 import android.widget.Toast
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -17,9 +18,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
@@ -28,41 +27,24 @@ import com.google.gson.JsonSerializer
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.syezw.data.AppDatabase
-import org.syezw.data.Diary
-import org.syezw.data.TodoTask
-import org.syezw.model.PeriodRecord
-import org.syezw.preference.SettingsManager
-import org.syezw.worker.BackupWorker
-import org.syezw.worker.GpsWorker
-import org.syezw.util.DIARY_IMAGES_FOLDER
-import org.syezw.util.diaryImagesRelativePath
-import org.syezw.util.resolvePathFromDownloadsRelativePath
-import org.syezw.util.resolveDiaryImagePath
-import org.syezw.util.resolveDiaryImageFile
-import java.io.File
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import android.provider.MediaStore
-import android.os.Environment
-import java.io.IOException
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.concurrent.TimeUnit
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import org.syezw.sync.DiaryImageSyncItem
+import org.syezw.data.AppDatabase
+import org.syezw.data.Diary
+import org.syezw.data.TodoTask
+import org.syezw.preference.SettingsManager
 import org.syezw.sync.DiaryImageRefItem
+import org.syezw.sync.DiaryImageSyncItem
 import org.syezw.sync.DiaryPayload
 import org.syezw.sync.DiarySyncItem
 import org.syezw.sync.ImageFetchRequest
@@ -71,12 +53,12 @@ import org.syezw.sync.ImageHashListResponse
 import org.syezw.sync.ImageRefsResponse
 import org.syezw.sync.ImageRefsUpsertRequest
 import org.syezw.sync.ImageUploadRequest
+import org.syezw.sync.PeriodMeta
 import org.syezw.sync.PeriodPayload
 import org.syezw.sync.PeriodSyncItem
-import org.syezw.sync.PeriodMeta
 import org.syezw.sync.SyncCounts
-import org.syezw.sync.SyncDownloadRequest
 import org.syezw.sync.SyncDownloadEnvelope
+import org.syezw.sync.SyncDownloadRequest
 import org.syezw.sync.SyncDownloadResponse
 import org.syezw.sync.SyncMeta
 import org.syezw.sync.SyncMetaResponse
@@ -88,8 +70,21 @@ import org.syezw.sync.decryptFromBlob
 import org.syezw.sync.deriveAesKeyFromPassphrase
 import org.syezw.sync.encryptToBlob
 import org.syezw.sync.sha256Hex
+import org.syezw.util.DIARY_IMAGES_FOLDER
+import org.syezw.util.diaryImagesRelativePath
 import org.syezw.util.normalizeDiaryImageName
+import org.syezw.util.resolveDiaryImageFile
+import org.syezw.util.resolveDiaryImagePath
+import org.syezw.util.resolvePathFromDownloadsRelativePath
+import org.syezw.worker.BackupWorker
+import java.io.BufferedReader
+import java.io.File
+import java.io.IOException
+import java.io.InputStreamReader
 import java.io.OutputStream
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
 
 data class UnusedDiaryImageState(
     val isChecking: Boolean = false,
@@ -151,6 +146,7 @@ class SettingsViewModel(
         val LAST_DOWNLOAD_FAILED = booleanPreferencesKey("last_download_failed")
         val SYNC_LOGS = stringPreferencesKey("sync_logs_json")
     }
+
     private val minUploadIntervalMs = 30_000L
     private val maxSyncLogs = 200
     private val maxSyncLogAgeMs = 7L * 24 * 60 * 60 * 1000
@@ -330,7 +326,8 @@ class SettingsViewModel(
             }
             val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
             val fileName = "syezw_gps_${sdf.format(java.util.Date())}.csv"
-            val lineSdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+            val lineSdf =
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
             val sb = StringBuilder()
             sb.appendLine("latitude,longitude,accuracy,altitude,speed,timestamp,endtime,author")
             for (loc in locations) {
@@ -633,7 +630,11 @@ class SettingsViewModel(
                 val passphrase = aesPassphrase.first()
                 if (apiBaseUrl.isBlank() || passphrase.isBlank() || apiKey.isBlank()) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(application, "请先配置远程地址、API Key和AES密钥", Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            application,
+                            "请先配置远程地址、API Key和AES密钥",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                     appendSyncLog("upload", false, "缺少远程地址或API Key或AES密钥")
                     setUploadProgress(false, 0, "")
@@ -647,7 +648,8 @@ class SettingsViewModel(
                 val serverMeta = fetchRemoteMeta(apiBaseUrl, apiKey)
                 val serverDiaryMeta = serverMeta?.diaries?.associateBy { it.uuid } ?: emptyMap()
                 val serverTodoMeta = serverMeta?.todos?.associateBy { it.uuid } ?: emptyMap()
-                val serverPeriodMeta = serverMeta?.periods?.associateBy { it.startDate } ?: emptyMap()
+                val serverPeriodMeta =
+                    serverMeta?.periods?.associateBy { it.startDate } ?: emptyMap()
 
                 val diaryIds = mutableListOf<Int>()
                 val diaries = database.diaryDao().getAllEntriesList()
@@ -657,21 +659,21 @@ class SettingsViewModel(
                     }
                     .also { diaryIds.addAll(it.map { d -> d.id }) }
                     .map { diary ->
-                    val payload = DiaryPayload(
-                        content = diary.content,
-                        tags = diary.tags,
-                        location = diary.location,
-                        imageUris = diary.imageUris.map(::normalizeDiaryImageName)
-                    )
-                    val payloadJson = gson.toJson(payload)
-                    DiarySyncItem(
-                        uuid = diary.uuid,
-                        author = diary.author,
-                        timestamp = diary.timestamp,
-                        updatedAt = diary.updatedAt,
-                        payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key)
-                    )
-                }
+                        val payload = DiaryPayload(
+                            content = diary.content,
+                            tags = diary.tags,
+                            location = diary.location,
+                            imageUris = diary.imageUris.map(::normalizeDiaryImageName)
+                        )
+                        val payloadJson = gson.toJson(payload)
+                        DiarySyncItem(
+                            uuid = diary.uuid,
+                            author = diary.author,
+                            timestamp = diary.timestamp,
+                            updatedAt = diary.updatedAt,
+                            payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key)
+                        )
+                    }
 
                 val todoIds = mutableListOf<Int>()
                 val todos = database.todoTaskDao().getAllTasksList()
@@ -681,18 +683,18 @@ class SettingsViewModel(
                     }
                     .also { todoIds.addAll(it.map { t -> t.id }) }
                     .map { task ->
-                    val payload = TodoPayload(name = task.name)
-                    val payloadJson = gson.toJson(payload)
-                    TodoSyncItem(
-                        uuid = task.uuid,
-                        author = task.author,
-                        isCompleted = task.isCompleted,
-                        createdAt = task.createdAt,
-                        completedAt = task.completedAt,
-                        updatedAt = task.updatedAt,
-                        payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key)
-                    )
-                }
+                        val payload = TodoPayload(name = task.name)
+                        val payloadJson = gson.toJson(payload)
+                        TodoSyncItem(
+                            uuid = task.uuid,
+                            author = task.author,
+                            isCompleted = task.isCompleted,
+                            createdAt = task.createdAt,
+                            completedAt = task.completedAt,
+                            updatedAt = task.updatedAt,
+                            payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key)
+                        )
+                    }
 
                 val periodStartDates = mutableListOf<Long>()
                 val periods = database.periodDao().getAllRecords().first()
@@ -702,15 +704,15 @@ class SettingsViewModel(
                     }
                     .also { periodStartDates.addAll(it.map { p -> p.startDate.toEpochDay() }) }
                     .map { record ->
-                    val payload = PeriodPayload(notes = record.notes)
-                    val payloadJson = gson.toJson(payload)
-                    PeriodSyncItem(
-                        startDate = record.startDate.toString(),
-                        endDate = record.endDate.toString(),
-                        updatedAt = record.updatedAt,
-                        payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key)
-                    )
-                }
+                        val payload = PeriodPayload(notes = record.notes)
+                        val payloadJson = gson.toJson(payload)
+                        PeriodSyncItem(
+                            startDate = record.startDate.toString(),
+                            endDate = record.endDate.toString(),
+                            updatedAt = record.updatedAt,
+                            payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key)
+                        )
+                    }
 
                 val images = emptyList<DiaryImageSyncItem>()
 
@@ -718,15 +720,21 @@ class SettingsViewModel(
                 var processedTextItems = 0
 
                 fun updateTextProgress() {
-                    val percent = if (totalTextItems == 0) 80 else (processedTextItems * 80 / totalTextItems)
-                    setUploadProgress(true, percent, "上传文本 ${processedTextItems}/${totalTextItems}")
+                    val percent =
+                        if (totalTextItems == 0) 80 else (processedTextItems * 80 / totalTextItems)
+                    setUploadProgress(
+                        true,
+                        percent,
+                        "上传文本 ${processedTextItems}/${totalTextItems}"
+                    )
                 }
 
                 updateTextProgress()
 
                 val diaryBatches = chunkBySize(diaries, maxUploadBatchBytes)
                 for (batch in diaryBatches) {
-                    val resp = sendUploadBatch(apiBaseUrl, apiKey, batch, emptyList(), emptyList(), images)
+                    val resp =
+                        sendUploadBatch(apiBaseUrl, apiKey, batch, emptyList(), emptyList(), images)
                     if (resp == null || !resp.ok) {
                         val msg = resp?.message ?: "上传失败"
                         withContext(Dispatchers.Main) {
@@ -742,7 +750,8 @@ class SettingsViewModel(
 
                 val todoBatches = chunkBySize(todos, maxUploadBatchBytes)
                 for (batch in todoBatches) {
-                    val resp = sendUploadBatch(apiBaseUrl, apiKey, emptyList(), batch, emptyList(), images)
+                    val resp =
+                        sendUploadBatch(apiBaseUrl, apiKey, emptyList(), batch, emptyList(), images)
                     if (resp == null || !resp.ok) {
                         val msg = resp?.message ?: "上传失败"
                         withContext(Dispatchers.Main) {
@@ -758,7 +767,8 @@ class SettingsViewModel(
 
                 val periodBatches = chunkBySize(periods, maxUploadBatchBytes)
                 for (batch in periodBatches) {
-                    val resp = sendUploadBatch(apiBaseUrl, apiKey, emptyList(), emptyList(), batch, images)
+                    val resp =
+                        sendUploadBatch(apiBaseUrl, apiKey, emptyList(), emptyList(), batch, images)
                     if (resp == null || !resp.ok) {
                         val msg = resp?.message ?: "上传失败"
                         withContext(Dispatchers.Main) {
@@ -846,7 +856,11 @@ class SettingsViewModel(
                 val passphrase = aesPassphrase.first()
                 if (apiBaseUrl.isBlank() || passphrase.isBlank() || apiKey.isBlank()) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(application, "请先配置远程地址、API Key和AES密钥", Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            application,
+                            "请先配置远程地址、API Key和AES密钥",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                     appendSyncLog("download", false, "缺少远程地址或API Key或AES密钥")
                     setDownloadProgress(false, 0, "")
@@ -860,7 +874,12 @@ class SettingsViewModel(
                 val localTodoMeta = database.todoTaskDao().getAllTasksList()
                     .map { SyncMeta(uuid = it.uuid, updatedAt = it.updatedAt) }
                 val localPeriodMeta = database.periodDao().getAllRecords().first()
-                    .map { PeriodMeta(startDate = it.startDate.toString(), updatedAt = it.updatedAt) }
+                    .map {
+                        PeriodMeta(
+                            startDate = it.startDate.toString(),
+                            updatedAt = it.updatedAt
+                        )
+                    }
                 val requestBody = SyncDownloadRequest(
                     diaries = localDiaryMeta,
                     todos = localTodoMeta,
@@ -876,7 +895,11 @@ class SettingsViewModel(
                 val responseBody = httpClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(application, "下载失败: ${response.code}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(
+                                application,
+                                "下载失败: ${response.code}",
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
                         appendSyncLog("download", false, "下载失败: ${response.code}")
                         setDownloadProgress(false, 0, "")
@@ -888,7 +911,11 @@ class SettingsViewModel(
                 val envelope = gson.fromJson(responseBody, SyncDownloadEnvelope::class.java)
                 if (!envelope.ok) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(application, "下载失败: ${envelope.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            application,
+                            "下载失败: ${envelope.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                     appendSyncLog("download", false, "下载失败: ${envelope.message}")
                     dataStore.edit { settings ->
@@ -1052,10 +1079,12 @@ class SettingsViewModel(
                 val apiKey = remoteApiKey.first().trim()
                 val passphrase = aesPassphrase.first()
                 if (apiBaseUrl.isBlank() || passphrase.isBlank() || apiKey.isBlank()) return@withContext false
-                val diaryTitle = database.diaryDao().getByUuid(diaryUuid)?.content?.take(10) ?: "unknown"
+                val diaryTitle =
+                    database.diaryDao().getByUuid(diaryUuid)?.content?.take(10) ?: "unknown"
                 val key = deriveAesKeyFromPassphrase(passphrase)
                 val normalizedFileName = normalizeDiaryImageName(fileName)
-                val requestBody = ImageFetchRequest(diaryUuid = diaryUuid, fileName = normalizedFileName)
+                val requestBody =
+                    ImageFetchRequest(diaryUuid = diaryUuid, fileName = normalizedFileName)
                 val json = gson.toJson(requestBody)
                 val request = Request.Builder()
                     .url("${apiBaseUrl.trimEnd('/')}/images/fetch")
@@ -1083,7 +1112,10 @@ class SettingsViewModel(
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, response.fileName)
                     put(MediaStore.Downloads.MIME_TYPE, mimeType)
-                    put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/syezw_diary_images")
+                    put(
+                        MediaStore.Downloads.RELATIVE_PATH,
+                        "${Environment.DIRECTORY_DOWNLOADS}/syezw_diary_images"
+                    )
                 }
                 val uri = application.contentResolver.insert(
                     MediaStore.Downloads.EXTERNAL_CONTENT_URI,
@@ -1322,7 +1354,8 @@ class SettingsViewModel(
 
         return httpClient.newCall(request).execute().use { response ->
             val body = response.body?.string() ?: ""
-            val parsed = runCatching { gson.fromJson(body, SyncUploadResponse::class.java) }.getOrNull()
+            val parsed =
+                runCatching { gson.fromJson(body, SyncUploadResponse::class.java) }.getOrNull()
             if (!response.isSuccessful) {
                 parsed ?: SyncUploadResponse(
                     ok = false,
@@ -1387,10 +1420,12 @@ class SettingsViewModel(
                     }
                     return@launch
                 }
-                val sdf = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+                val sdf =
+                    java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
                 val fileName = "syezw_sync_logs_${sdf.format(java.util.Date())}.txt"
                 val builder = StringBuilder()
-                val lineSdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                val lineSdf =
+                    java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
                 for (entry in logs) {
                     val ts = lineSdf.format(java.util.Date(entry.timestamp))
                     builder.append("[").append(ts).append("] ")
@@ -1410,7 +1445,8 @@ class SettingsViewModel(
                 )
                 if (uri == null) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(application, "导出失败：无法创建文件", Toast.LENGTH_LONG).show()
+                        Toast.makeText(application, "导出失败：无法创建文件", Toast.LENGTH_LONG)
+                            .show()
                     }
                     return@launch
                 }
@@ -1418,7 +1454,8 @@ class SettingsViewModel(
                     output.write(builder.toString().toByteArray(Charsets.UTF_8))
                 }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(application, "同步日志已导出到下载目录", Toast.LENGTH_LONG).show()
+                    Toast.makeText(application, "同步日志已导出到下载目录", Toast.LENGTH_LONG)
+                        .show()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {

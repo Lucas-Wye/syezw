@@ -2,10 +2,10 @@ package org.syezw.sync
 
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
-import java.util.Base64
 
 private const val AES_MODE = "AES/GCM/NoPadding"
 private const val GCM_TAG_BITS = 128

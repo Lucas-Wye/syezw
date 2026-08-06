@@ -8,12 +8,17 @@ const val DOWNLOAD_RELATIVE_PREFIX = "Download/"
 
 fun diaryImagesRelativePath(): String = "$DOWNLOAD_RELATIVE_PREFIX$DIARY_IMAGES_FOLDER/"
 
-fun resolvePathFromDownloadsRelativePath(downloadsDir: File, relativePath: String, fileName: String): File {
+fun resolvePathFromDownloadsRelativePath(
+    downloadsDir: File,
+    relativePath: String,
+    fileName: String
+): File {
     return File(downloadsDir, relativePath.removePrefix(DOWNLOAD_RELATIVE_PREFIX) + fileName)
 }
 
 fun resolveDiaryImagePath(nameOrPath: String): String {
-    val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+    val downloadsDir =
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
     return resolveDiaryImagePath(nameOrPath, downloadsDir)
 }
 

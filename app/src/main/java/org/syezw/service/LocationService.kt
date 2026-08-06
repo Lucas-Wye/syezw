@@ -29,8 +29,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.syezw.MainActivity
 import org.syezw.data.AppDatabase
-import org.syezw.model.GpsPrefKeys
 import org.syezw.dataStore
+import org.syezw.model.GpsPrefKeys
 import org.syezw.preference.SettingsManager
 import org.syezw.util.GpsLocationSaver
 import org.syezw.util.toGpsLocationSample
@@ -110,20 +110,28 @@ class LocationService : Service() {
             priority = intent.getIntExtra(EXTRA_PRIORITY, DEFAULT_PRIORITY)
             intervalMs = intent.getLongExtra(EXTRA_INTERVAL_MS, DEFAULT_INTERVAL_MS)
                 .coerceAtLeast(MIN_INTERVAL_MS)
-            fastestIntervalMs = intent.getLongExtra(EXTRA_FASTEST_INTERVAL_MS, DEFAULT_FASTEST_INTERVAL_MS)
-                .coerceAtLeast(MIN_INTERVAL_MS)
+            fastestIntervalMs =
+                intent.getLongExtra(EXTRA_FASTEST_INTERVAL_MS, DEFAULT_FASTEST_INTERVAL_MS)
+                    .coerceAtLeast(MIN_INTERVAL_MS)
             author = intent.getStringExtra(EXTRA_AUTHOR) ?: SettingsManager.DEFAULT_AUTHOR_VALUE
         } else {
             val prefs = runBlockingReadPrefs()
             priority = prefs?.priority ?: DEFAULT_PRIORITY
             intervalMs = (prefs?.intervalMs ?: DEFAULT_INTERVAL_MS).coerceAtLeast(MIN_INTERVAL_MS)
-            fastestIntervalMs = (prefs?.fastestIntervalMs ?: DEFAULT_FASTEST_INTERVAL_MS).coerceAtLeast(MIN_INTERVAL_MS)
+            fastestIntervalMs =
+                (prefs?.fastestIntervalMs ?: DEFAULT_FASTEST_INTERVAL_MS).coerceAtLeast(
+                    MIN_INTERVAL_MS
+                )
             author = prefs?.author ?: SettingsManager.DEFAULT_AUTHOR_VALUE
         }
 
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            )
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -157,8 +165,10 @@ class LocationService : Service() {
             else -> DEFAULT_PRIORITY
         }
         val intervalMs = prefs[GpsPrefKeys.GPS_INTERVAL_MS]?.toLongOrNull() ?: DEFAULT_INTERVAL_MS
-        val fastestIntervalMs = prefs[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS]?.toLongOrNull() ?: DEFAULT_FASTEST_INTERVAL_MS
-        val author = prefs[SettingsManager.DEFAULT_AUTHOR_KEY] ?: SettingsManager.DEFAULT_AUTHOR_VALUE
+        val fastestIntervalMs = prefs[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS]?.toLongOrNull()
+            ?: DEFAULT_FASTEST_INTERVAL_MS
+        val author =
+            prefs[SettingsManager.DEFAULT_AUTHOR_KEY] ?: SettingsManager.DEFAULT_AUTHOR_VALUE
 
         return RestoredPrefs(priority, intervalMs, fastestIntervalMs, author)
     }
@@ -174,13 +184,14 @@ class LocationService : Service() {
 
     private fun isSystemLocationEnabled(): Boolean {
         return try {
-            val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            val locationManager =
+                getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 locationManager.isLocationEnabled
             } else {
                 @Suppress("DEPRECATION")
                 locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
-                locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+                        locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to check location enabled status", e)
@@ -245,7 +256,12 @@ class LocationService : Service() {
             .build()
     }
 
-    private fun startLocationUpdates(priority: Int, intervalMs: Long, fastestIntervalMs: Long, author: String) {
+    private fun startLocationUpdates(
+        priority: Int,
+        intervalMs: Long,
+        fastestIntervalMs: Long,
+        author: String
+    ) {
         val locationRequest = LocationRequest.Builder(intervalMs)
             .setMinUpdateIntervalMillis(fastestIntervalMs)
             .setPriority(priority)

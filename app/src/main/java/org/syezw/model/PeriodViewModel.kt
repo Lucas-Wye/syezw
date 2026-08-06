@@ -10,7 +10,6 @@ import androidx.room.Entity
 import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
-import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.TypeAdapter
 import com.google.gson.reflect.TypeToken
@@ -157,7 +156,12 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
             if (nextRecord != null && newEndDate.isAfter(nextRecord.startDate.minusDays(1))) {
                 return@launch
             }
-            periodDao.upsert(record.copy(endDate = newEndDate, updatedAt = System.currentTimeMillis()))
+            periodDao.upsert(
+                record.copy(
+                    endDate = newEndDate,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
         }
     }
 
@@ -228,7 +232,8 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
                 }
 
                 val type: Type = object : TypeToken<List<PeriodRecordImport>>() {}.type
-                val importedRecords: List<PeriodRecordImport> = gson.fromJson(jsonString.toString(), type)
+                val importedRecords: List<PeriodRecordImport> =
+                    gson.fromJson(jsonString.toString(), type)
 
                 if (importedRecords.isEmpty()) {
                     withContext(Dispatchers.Main) {

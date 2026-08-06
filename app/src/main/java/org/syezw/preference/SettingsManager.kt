@@ -47,12 +47,12 @@ class SettingsManager(private val dataStore: DataStore<Preferences>) {
             settings[DATE_KEY] = date
         }
     }
-    
+
     // Flow for the love background image URI
     val loveBgImageUriFlow: Flow<String?> = dataStore.data.map { preferences ->
         preferences[LOVE_BG_IMAGE_URI_KEY]
     }
-    
+
     // Function to save the love background image URI
     suspend fun setLoveBgImageUri(uri: String?) {
         dataStore.edit { settings ->
@@ -63,12 +63,12 @@ class SettingsManager(private val dataStore: DataStore<Preferences>) {
             }
         }
     }
-    
+
     // Flow for the love background enabled state
     val loveBgEnabledFlow: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[LOVE_BG_ENABLED_KEY] ?: false
     }
-    
+
     // Function to save the love background enabled state
     suspend fun setLoveBgEnabled(enabled: Boolean) {
         dataStore.edit { settings ->

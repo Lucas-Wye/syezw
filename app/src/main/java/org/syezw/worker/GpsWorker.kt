@@ -5,10 +5,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.ContextCompat
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.Tasks
@@ -46,7 +44,10 @@ class GpsWorker(
             val location = withContext(Dispatchers.IO) {
                 try {
                     Tasks.await(
-                        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null),
+                        fusedLocationClient.getCurrentLocation(
+                            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                            null
+                        ),
                         30, TimeUnit.SECONDS
                     )
                 } catch (e: Exception) {
@@ -57,7 +58,11 @@ class GpsWorker(
 
             if (location != null) {
                 val author = readAuthor()
-                GpsLocationSaver.saveLocation(database.gpsLocationDao(), location.toGpsLocationSample(), author)
+                GpsLocationSaver.saveLocation(
+                    database.gpsLocationDao(),
+                    location.toGpsLocationSample(),
+                    author
+                )
                 Result.success()
             } else {
                 Log.w(TAG, "Failed to get current location")
@@ -73,8 +78,10 @@ class GpsWorker(
     }
 
     private fun hasLocationPermission(): Boolean {
-        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
-        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+        val fine =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarse =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
         return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
     }
 

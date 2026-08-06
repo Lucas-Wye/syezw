@@ -1,15 +1,21 @@
 package org.syezw.screen
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,10 +24,10 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -30,29 +36,22 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import android.content.pm.PackageManager
-import android.Manifest
-import android.content.Context
-import android.os.Build
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Priority
+import kotlinx.coroutines.launch
 import org.syezw.model.SettingsViewModel
 import org.syezw.service.LocationService
 import java.text.SimpleDateFormat
@@ -141,20 +140,27 @@ fun SettingsScreen(
     )
 
     fun hasLocationPermissions(): Boolean {
-        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val fine = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
         return fine || coarse
     }
 
     fun isSystemLocationEnabled(): Boolean {
         return try {
-            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            val locationManager =
+                context.getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 locationManager.isLocationEnabled
             } else {
                 @Suppress("DEPRECATION")
                 locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
-                locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+                        locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
             }
         } catch (e: Exception) {
             false
@@ -163,7 +169,10 @@ fun SettingsScreen(
 
     fun hasNotificationPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
         } else {
             true
         }
@@ -200,17 +209,29 @@ fun SettingsScreen(
             if (fineGranted || coarseGranted) {
                 startGpsService()
             } else {
-                Toast.makeText(context, "Location permission is required for GPS tracking", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    context,
+                    "Location permission is required for GPS tracking",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     )
 
     fun requestLocationPermissions() {
         val permissions = mutableListOf<String>()
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         }
         if (permissions.isNotEmpty()) {
@@ -226,7 +247,11 @@ fun SettingsScreen(
             if (granted) {
                 requestLocationPermissions()
             } else {
-                Toast.makeText(context, "Notification permission is required for foreground service", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    context,
+                    "Notification permission is required for foreground service",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     )
@@ -235,7 +260,11 @@ fun SettingsScreen(
         settingsViewModel.setGpsEnabled(enabled)
         if (enabled) {
             if (!isSystemLocationEnabled()) {
-                Toast.makeText(context, "Please enable Location in system settings", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    context,
+                    "Please enable Location in system settings",
+                    Toast.LENGTH_LONG
+                ).show()
                 settingsViewModel.setGpsEnabled(false)
                 return
             }

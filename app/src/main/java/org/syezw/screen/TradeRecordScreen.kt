@@ -1,8 +1,6 @@
 package org.syezw.screen
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,14 +18,14 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,10 +37,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.syezw.model.SettingsViewModel
 import org.syezw.model.TradeOrderType
 import org.syezw.model.TradeRecordItem
@@ -115,7 +113,9 @@ fun TradeRecordScreen(
                 ) {
                     // 股票名字
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val changePercent = tradeState.stockChangePercent
@@ -163,7 +163,9 @@ fun TradeRecordScreen(
                         color = colorResource(id = org.syezw.R.color.trade_divider)
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 20.dp, bottom = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -192,7 +194,9 @@ fun TradeRecordScreen(
                         }
                     }
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val profitValue = formatSignedAmount(tradeState.referenceProfit)
@@ -211,7 +215,7 @@ fun TradeRecordScreen(
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Medium,
                             // fontWeight = FontWeight.Bold,
-                            color = profitColor                            
+                            color = profitColor
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
@@ -362,8 +366,8 @@ private fun TradeTabRow(
 
 @Composable
 private fun TextButtonLabel(
-    text: String, 
-    selected: Boolean, 
+    text: String,
+    selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -398,7 +402,12 @@ private fun SummaryRow(holdDays: String, buyTimes: String, sellTimes: String) {
 @Composable
 private fun SummaryItem(label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, fontSize = 14.sp, color = colorResource(id = org.syezw.R.color.trade_text_secondary), maxLines = 1)
+        Text(
+            label,
+            fontSize = 14.sp,
+            color = colorResource(id = org.syezw.R.color.trade_text_secondary),
+            maxLines = 1
+        )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             value,
@@ -419,14 +428,14 @@ private fun TradeRecordList(
     if (records.isEmpty()) {
         return
     }
-    
+
     val sortedRecords = records.sortedWith(compareByDescending<TradeRecordItem> {
         val year = it.year.toIntOrNull() ?: 0
         val month = it.month.toIntOrNull() ?: 0
         val day = it.day.toIntOrNull() ?: 0
         year * 10000 + month * 100 + day
     })
-    
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(1.dp)
@@ -440,7 +449,8 @@ private fun TradeRecordList(
                             .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val isBuy = record.type == TradeOrderType.BUY || record.type == TradeOrderType.OPEN
+                        val isBuy =
+                            record.type == TradeOrderType.BUY || record.type == TradeOrderType.OPEN
                         Box(modifier = Modifier.weight(1f)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
