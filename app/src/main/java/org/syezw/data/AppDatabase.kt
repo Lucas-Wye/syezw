@@ -10,8 +10,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import org.syezw.model.PeriodRecord
 
 @Database(
-    entities = [Diary::class, TodoTask::class, PeriodRecord::class, GpsLocation::class],
-    version = 4,
+    entities = [Diary::class, TodoTask::class, PeriodRecord::class, GpsLocation::class, ProductOffer::class],
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -21,6 +21,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun todoTaskDao(): TodoTaskDao
     abstract fun periodDao(): PeriodDao
     abstract fun gpsLocationDao(): GpsLocationDao
+    abstract fun productOfferDao(): ProductOfferDao
 
     companion object {
         @Volatile
@@ -66,6 +67,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS product_offers (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        uuid TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        merchant TEXT NOT NULL,
+                        price REAL NOT NULL,
+                        quantity REAL NOT NULL,
+                        quantityUnit TEXT NOT NULL,
+                        timestamp INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                """)
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_product_offers_uuid ON product_offers(uuid)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -73,7 +93,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "syezw_database"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
 
                 INSTANCE = instance

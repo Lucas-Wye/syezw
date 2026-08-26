@@ -42,6 +42,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.syezw.data.AppDatabase
 import org.syezw.data.Diary
 import org.syezw.data.TodoTask
+import org.syezw.data.ProductOffer
 import org.syezw.preference.SettingsManager
 import org.syezw.sync.DiaryImageRefItem
 import org.syezw.sync.DiaryImageSyncItem
@@ -56,6 +57,8 @@ import org.syezw.sync.ImageUploadRequest
 import org.syezw.sync.PeriodMeta
 import org.syezw.sync.PeriodPayload
 import org.syezw.sync.PeriodSyncItem
+import org.syezw.sync.ProductPayload
+import org.syezw.sync.ProductSyncItem
 import org.syezw.sync.SyncCounts
 import org.syezw.sync.SyncDownloadEnvelope
 import org.syezw.sync.SyncDownloadRequest
@@ -650,6 +653,7 @@ class SettingsViewModel(
                 val serverTodoMeta = serverMeta?.todos?.associateBy { it.uuid } ?: emptyMap()
                 val serverPeriodMeta =
                     serverMeta?.periods?.associateBy { it.startDate } ?: emptyMap()
+                val serverProductMeta = serverMeta?.products?.associateBy { it.uuid } ?: emptyMap()
 
                 val diaryIds = mutableListOf<Int>()
                 val diaries = database.diaryDao().getAllEntriesList()
@@ -715,6 +719,12 @@ class SettingsViewModel(
                     }
 
                 val images = emptyList<DiaryImageSyncItem>()
+                val products = database.productOfferDao().getAllList()
+                    .filter { offer -> serverProductMeta[offer.uuid]?.updatedAt?.let { offer.updatedAt > it } ?: true }
+                    .map { offer ->
+                        ProductSyncItem(offer.uuid, offer.name, offer.timestamp, offer.updatedAt,
+                            encryptToBlob(gson.toJson(ProductPayload(offer.merchant, offer.price, offer.quantity, offer.quantityUnit)).toByteArray(), key))
+                    }
 
                 val totalTextItems = diaries.size + todos.size + periods.size
                 var processedTextItems = 0
@@ -782,6 +792,12 @@ class SettingsViewModel(
                     updateTextProgress()
                 }
 
+                val productBatches = chunkBySize(products, maxUploadBatchBytes)
+                for (batch in productBatches) {
+                    val resp = sendUploadBatch(apiBaseUrl, apiKey, emptyList(), emptyList(), emptyList(), emptyList(), batch)
+                    if (resp == null || !resp.ok) { val msg = resp?.message ?: "上传商品失败"; appendSyncLog("upload", false, msg); setUploadProgress(false, 0, ""); return@launch }
+                }
+
                 val imageUploadCount = syncImageUploads(key, apiKey) { done, total ->
                     val percent = if (total == 0) 100 else 80 + (done * 20 / total)
                     setUploadProgress(true, percent, "上传图片 ${done}/${total}")
@@ -794,7 +810,7 @@ class SettingsViewModel(
                     imageUploads = imageUploadCount
                 )
                 _lastUploadSummary.value =
-                    "上传完成：diary ${summary.diaries}，todo ${summary.todos}，period ${summary.periods}，image ${summary.imageUploads}"
+                    "上传完成：diary ${summary.diaries}，todo ${summary.todos}，period ${summary.periods}，product ${products.size}，image ${summary.imageUploads}"
                 appendSyncLog(
                     "upload",
                     true,
@@ -880,10 +896,12 @@ class SettingsViewModel(
                             updatedAt = it.updatedAt
                         )
                     }
+                val localProductMeta = database.productOfferDao().getAllList().map { SyncMeta(it.uuid, it.updatedAt) }
                 val requestBody = SyncDownloadRequest(
                     diaries = localDiaryMeta,
                     todos = localTodoMeta,
-                    periods = localPeriodMeta
+                    periods = localPeriodMeta,
+                    products = localProductMeta
                 )
                 val json = gson.toJson(requestBody)
                 val request = Request.Builder()
@@ -1058,6 +1076,16 @@ class SettingsViewModel(
                 failedPeriods += 1
                 appendSyncLog("download", false, "解密周期失败: ${item.startDate} (${e.message})")
             }
+        }
+
+        val localProducts = database.productOfferDao().getAllList().associateBy { it.uuid }
+        for (item in response.products) {
+            try {
+                val payload = gson.fromJson(String(decryptFromBlob(item.payload, key), Charsets.UTF_8), ProductPayload::class.java)
+                val existing = localProducts[item.id]
+                val updated = ProductOffer(existing?.id ?: 0, item.id, item.name, payload.merchant, payload.price, payload.quantity, payload.quantityUnit, item.timestamp, item.updatedAt)
+                if (existing == null) database.productOfferDao().insert(updated) else if (item.updatedAt > existing.updatedAt) database.productOfferDao().update(updated)
+            } catch (e: Exception) { appendSyncLog("download", false, "解密商品失败: ${item.id} (${e.message})") }
         }
 
         if (failedDiaries + failedTodos + failedPeriods > 0) {
@@ -1337,13 +1365,15 @@ class SettingsViewModel(
         diaries: List<DiarySyncItem>,
         todos: List<TodoSyncItem>,
         periods: List<PeriodSyncItem>,
-        images: List<DiaryImageSyncItem>
+        images: List<DiaryImageSyncItem>,
+        products: List<ProductSyncItem> = emptyList()
     ): SyncUploadResponse? {
         val requestBody = SyncUploadRequest(
             diaries = diaries,
             todos = todos,
             periods = periods,
-            images = images
+            images = images,
+            products = products
         )
         val json = gson.toJson(requestBody)
         val request = Request.Builder()

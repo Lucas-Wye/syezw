@@ -45,6 +45,21 @@ data class PeriodSyncItem(
     val payload: EncryptedBlob
 )
 
+data class ProductPayload(
+    val merchant: String,
+    val price: Double,
+    val quantity: Double,
+    val quantityUnit: String
+)
+
+data class ProductSyncItem(
+    val id: String,
+    val name: String,
+    val timestamp: Long,
+    val updatedAt: Long,
+    val payload: EncryptedBlob
+)
+
 data class DiaryImageSyncItem(
     val fileName: String,
     val diaryUuid: String,
@@ -65,6 +80,7 @@ data class SyncUploadRequest(
     val todos: List<TodoSyncItem>,
     val periods: List<PeriodSyncItem>,
     val images: List<DiaryImageSyncItem>
+    ,val products: List<ProductSyncItem> = emptyList()
 )
 
 data class SyncCounts(
@@ -72,6 +88,7 @@ data class SyncCounts(
     val todos: Int,
     val periods: Int,
     val images: Int
+    ,val products: Int = 0
 )
 
 data class SyncUploadResponse(
@@ -84,6 +101,7 @@ data class SyncDownloadRequest(
     val diaries: List<SyncMeta> = emptyList(),
     val todos: List<SyncMeta> = emptyList(),
     val periods: List<PeriodMeta> = emptyList()
+    ,val products: List<SyncMeta> = emptyList()
 )
 
 data class SyncMeta(
@@ -137,6 +155,7 @@ data class SyncDownloadResponse(
     val todos: List<TodoSyncItem>,
     val periods: List<PeriodSyncItem>,
     val images: List<DiaryImageSyncItem>
+    ,val products: List<ProductSyncItem> = emptyList()
 )
 
 
@@ -144,4 +163,5 @@ data class SyncMetaResponse(
     val diaries: List<SyncMeta>,
     val todos: List<SyncMeta>,
     val periods: List<PeriodMeta>
+    ,val products: List<SyncMeta> = emptyList()
 )

@@ -36,6 +36,8 @@ import org.syezw.model.DiaryViewModelFactory
 import org.syezw.model.GpsPrefKeys
 import org.syezw.model.PeriodViewModel
 import org.syezw.model.PeriodViewModelFactory
+import org.syezw.model.ProductViewModel
+import org.syezw.model.ProductViewModelFactory
 import org.syezw.model.SettingsViewModel
 import org.syezw.model.SettingsViewModelFactory
 import org.syezw.model.TodoViewModel
@@ -46,6 +48,7 @@ import org.syezw.screen.OurLove
 import org.syezw.screen.OurLoveViewModel
 import org.syezw.screen.OurLoveViewModelFactory
 import org.syezw.screen.PeriodTrackingScreen
+import org.syezw.screen.ProductScreen
 import org.syezw.screen.SettingsScreen
 import org.syezw.screen.TODOScreen
 import org.syezw.screen.TradeRecordScreen
@@ -136,6 +139,9 @@ fun SyezwAppScreen() {
     val periodViewModel: PeriodViewModel = viewModel(
         factory = PeriodViewModelFactory(database.periodDao())
     )
+    val productViewModel: ProductViewModel = viewModel(
+        factory = ProductViewModelFactory(database.productOfferDao())
+    )
 
     // 从 SettingsViewModel 监听周期记录的开关状态
     val isPeriodTrackingEnabled by settingsViewModel.isPeriodTrackingEnabled.collectAsState()
@@ -196,6 +202,10 @@ fun SyezwAppScreen() {
 
                     AppDestinations.PERIOD -> PeriodTrackingScreen(
                         viewModel = periodViewModel, modifier = screenModifier
+                    )
+
+                    AppDestinations.PRODUCTS -> ProductScreen(
+                        viewModel = productViewModel, modifier = screenModifier
                     )
 
                     AppDestinations.SETTINGS -> SettingsScreen(
