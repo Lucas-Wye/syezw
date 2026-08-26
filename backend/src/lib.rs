@@ -10,9 +10,9 @@ use log::{info, warn};
 use models::{
     DiaryImageRefItem, DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, ImageFetchRequest,
     ImageFetchResponse, ImageHashListResponse, ImageRefsResponse, ImageRefsUpsertRequest,
-    ImageUploadRequest, PeriodMeta, PeriodSyncItem, SyncCounts, SyncDownloadEnvelope,
-    SyncDownloadRequest, SyncDownloadResponse, SyncMeta, SyncMetaResponse, SyncUploadRequest,
-    SyncUploadResponse, TodoSyncItem,
+    ImageUploadRequest, PeriodMeta, PeriodSyncItem, ProductSyncItem, SyncCounts,
+    SyncDownloadEnvelope, SyncDownloadRequest, SyncDownloadResponse, SyncMeta, SyncMetaResponse,
+    SyncUploadRequest, SyncUploadResponse, TodoSyncItem,
 };
 
 #[derive(Clone)]
@@ -70,6 +70,7 @@ pub async fn sync_upload(
                         todos: 0,
                         periods: 0,
                         images: 0,
+                        products: 0,
                     },
                 }),
             );
@@ -88,6 +89,7 @@ pub async fn sync_upload(
                         todos: 0,
                         periods: 0,
                         images: 0,
+                        products: 0,
                     },
                 }),
             );
@@ -106,6 +108,7 @@ pub async fn sync_upload(
                         todos: 0,
                         periods: 0,
                         images: 0,
+                        products: 0,
                     },
                 }),
             );
@@ -124,6 +127,7 @@ pub async fn sync_upload(
                         todos: 0,
                         periods: 0,
                         images: 0,
+                        products: 0,
                     },
                 }),
             );
@@ -142,6 +146,26 @@ pub async fn sync_upload(
                         todos: 0,
                         periods: 0,
                         images: 0,
+                        products: 0,
+                    },
+                }),
+            );
+        }
+    }
+
+    for item in &payload.products {
+        if let Err(e) = upsert_product(&mut tx, item).await {
+            warn!("sync_upload: product upsert failed: {}", e);
+            return Ok(
+                HttpResponse::InternalServerError().json(SyncUploadResponse {
+                    ok: false,
+                    message: format!("product upsert failed: {}", e),
+                    counts: SyncCounts {
+                        diaries: 0,
+                        todos: 0,
+                        periods: 0,
+                        images: 0,
+                        products: 0,
                     },
                 }),
             );
@@ -159,6 +183,7 @@ pub async fn sync_upload(
                     todos: 0,
                     periods: 0,
                     images: 0,
+                    products: 0,
                 },
             }),
         );
@@ -169,6 +194,7 @@ pub async fn sync_upload(
         todos: payload.todos.len(),
         periods: payload.periods.len(),
         images: payload.images.len(),
+        products: payload.products.len(),
     };
     info!(
         "sync_upload success: diaries={}, todos={}, periods={}, images={}",
@@ -204,6 +230,11 @@ pub async fn sync_download(
         .iter()
         .map(|m| (m.start_date.clone(), m.updated_at))
         .collect();
+    let product_meta: std::collections::HashMap<String, i64> = payload
+        .products
+        .iter()
+        .map(|m| (m.uuid.clone(), m.updated_at))
+        .collect();
 
     let diary_rows = match sqlx::query(
         r#"
@@ -226,12 +257,14 @@ pub async fn sync_download(
                         todos: 0,
                         periods: 0,
                         images: 0,
+                        products: 0,
                     },
                     data: SyncDownloadResponse {
                         diaries: vec![],
                         todos: vec![],
                         periods: vec![],
                         images: vec![],
+                        products: vec![],
                     },
                 }),
             );
@@ -270,8 +303,8 @@ pub async fn sync_download(
             return Ok(HttpResponse::InternalServerError().json(SyncDownloadEnvelope {
                 ok: false,
                 message: format!("todo query failed: {}", e),
-                counts: SyncCounts { diaries: 0, todos: 0, periods: 0, images: 0 },
-                data: SyncDownloadResponse { diaries: vec![], todos: vec![], periods: vec![], images: vec![] },
+                counts: SyncCounts { diaries: 0, todos: 0, periods: 0, images: 0, products: 0 },
+                data: SyncDownloadResponse { diaries: vec![], todos: vec![], periods: vec![], images: vec![], products: vec![] },
             }));
         }
     };
@@ -310,8 +343,8 @@ pub async fn sync_download(
             return Ok(HttpResponse::InternalServerError().json(SyncDownloadEnvelope {
                 ok: false,
                 message: format!("period query failed: {}", e),
-                counts: SyncCounts { diaries: 0, todos: 0, periods: 0, images: 0 },
-                data: SyncDownloadResponse { diaries: vec![], todos: vec![], periods: vec![], images: vec![] },
+                counts: SyncCounts { diaries: 0, todos: 0, periods: 0, images: 0, products: 0 },
+                data: SyncDownloadResponse { diaries: vec![], todos: vec![], periods: vec![], images: vec![], products: vec![] },
             }));
         }
     };
@@ -332,6 +365,57 @@ pub async fn sync_download(
         })
         .collect();
 
+    let product_rows = match sqlx::query(
+        "SELECT id, name, timestamp, updated_at, payload_iv, payload_data FROM product_sync",
+    )
+    .fetch_all(&state.pool)
+    .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            warn!("sync_download: product query failed: {}", e);
+            return Ok(
+                HttpResponse::InternalServerError().json(SyncDownloadEnvelope {
+                    ok: false,
+                    message: format!("product query failed: {}", e),
+                    counts: SyncCounts {
+                        diaries: 0,
+                        todos: 0,
+                        periods: 0,
+                        images: 0,
+                        products: 0,
+                    },
+                    data: SyncDownloadResponse {
+                        diaries: vec![],
+                        todos: vec![],
+                        periods: vec![],
+                        images: vec![],
+                        products: vec![],
+                    },
+                }),
+            );
+        }
+    };
+    let products = product_rows
+        .into_iter()
+        .map(|row| ProductSyncItem {
+            id: row.get("id"),
+            name: row.get("name"),
+            timestamp: row.get("timestamp"),
+            updated_at: row.get("updated_at"),
+            payload: EncryptedBlob {
+                iv: row.get("payload_iv"),
+                data: row.get("payload_data"),
+            },
+        })
+        .filter(|item| {
+            product_meta
+                .get(&item.id)
+                .map(|v| item.updated_at > *v)
+                .unwrap_or(true)
+        })
+        .collect();
+
     // Note: Images are NOT included in sync_download to avoid transferring
     // potentially huge blobs. Clients should use /images/refs + /images/fetch
     // for on-demand image downloads.
@@ -340,16 +424,18 @@ pub async fn sync_download(
         todos,
         periods,
         images: vec![],
+        products,
     };
     let counts = SyncCounts {
         diaries: response.diaries.len(),
         todos: response.todos.len(),
         periods: response.periods.len(),
         images: response.images.len(),
+        products: response.products.len(),
     };
     info!(
-        "sync_download success: diaries={}, todos={}, periods={}, images={}",
-        counts.diaries, counts.todos, counts.periods, counts.images
+        "sync_download success: diaries={}, todos={}, periods={}, images={}, products={}",
+        counts.diaries, counts.todos, counts.periods, counts.images, counts.products
     );
     Ok(HttpResponse::Ok().json(SyncDownloadEnvelope {
         ok: true,
@@ -611,10 +697,29 @@ pub async fn sync_meta(
         })
         .collect();
 
+    let product_rows = match sqlx::query("SELECT id, updated_at FROM product_sync")
+        .fetch_all(&state.pool)
+        .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            warn!("sync_meta: product query failed: {}", e);
+            return Ok(HttpResponse::InternalServerError().finish());
+        }
+    };
+    let products = product_rows
+        .into_iter()
+        .map(|row| SyncMeta {
+            uuid: row.get("id"),
+            updated_at: row.get("updated_at"),
+        })
+        .collect();
+
     Ok(HttpResponse::Ok().json(SyncMetaResponse {
         diaries,
         todos,
         periods,
+        products,
     }))
 }
 
@@ -704,6 +809,21 @@ async fn upsert_period(
     .execute(&mut **tx)
     .await
     .map_err(actix_web::error::ErrorInternalServerError)?;
+    Ok(())
+}
+
+async fn upsert_product(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    item: &ProductSyncItem,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(r#"
+        INSERT INTO product_sync (id, name, timestamp, updated_at, payload_iv, payload_data)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, timestamp = EXCLUDED.timestamp,
+          updated_at = EXCLUDED.updated_at, payload_iv = EXCLUDED.payload_iv, payload_data = EXCLUDED.payload_data
+    "#)
+    .bind(&item.id).bind(&item.name).bind(item.timestamp).bind(item.updated_at)
+    .bind(&item.payload.iv).bind(&item.payload.data).execute(&mut **tx).await?;
     Ok(())
 }
 

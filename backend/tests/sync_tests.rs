@@ -7,8 +7,8 @@ use std::env;
 use std::time::{SystemTime, UNIX_EPOCH};
 use syezw_sync_backend::db::EnvConfig;
 use syezw_sync_backend::models::{
-    DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, PeriodSyncItem, SyncDownloadEnvelope,
-    SyncDownloadRequest, SyncUploadRequest, TodoSyncItem,
+    DiaryImageSyncItem, DiarySyncItem, EncryptedBlob, PeriodSyncItem, ProductSyncItem,
+    SyncDownloadEnvelope, SyncDownloadRequest, SyncUploadRequest, TodoSyncItem,
 };
 
 fn log_db_info(label: &str, host: &str, port: i32, db: &str, user: &str) {
@@ -75,6 +75,7 @@ async fn upload_then_download_round_trip() {
         .as_nanos();
     let diary_uuid = format!("d1_{}", suffix);
     let todo_uuid = format!("t1_{}", suffix);
+    let product_id = format!("p1_{}", suffix);
 
     let env_cfg = EnvConfig::from_env();
     let app = test::init_service(
@@ -137,6 +138,16 @@ async fn upload_then_download_round_trip() {
                 data: "data".to_string(),
             },
         }],
+        products: vec![ProductSyncItem {
+            id: product_id.clone(),
+            name: "牛奶".to_string(),
+            timestamp: 7,
+            updated_at: 8,
+            payload: EncryptedBlob {
+                iv: "iv".to_string(),
+                data: "product".to_string(),
+            },
+        }],
     };
 
     let req = test::TestRequest::post()
@@ -151,6 +162,7 @@ async fn upload_then_download_round_trip() {
         diaries: vec![],
         todos: vec![],
         periods: vec![],
+        products: vec![],
     };
     let req = test::TestRequest::post()
         .uri("/sync/download")
@@ -167,6 +179,10 @@ async fn upload_then_download_round_trip() {
         .periods
         .iter()
         .any(|p| p.start_date == "2025-01-01" && p.end_date == "2025-01-05"));
+    assert!(data
+        .products
+        .iter()
+        .any(|p| p.id == product_id && p.name == "牛奶"));
     // Images are no longer included in sync_download (fetched via /images/* endpoints)
 }
 
@@ -289,6 +305,7 @@ async fn upload_with_image_hash_dedup_and_fetch() {
                 data: "data".to_string(),
             },
         }],
+        products: vec![],
     };
 
     let req = test::TestRequest::post()

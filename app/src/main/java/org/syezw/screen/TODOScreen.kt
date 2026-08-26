@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -279,11 +280,13 @@ fun AddEditTodoDialog( // Updated for new fields
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = uiState.currentName, // Changed to currentName
-                    onValueChange = { viewModel.updateCurrentName(it) }, // Changed to updateCurrentName
+                    value = uiState.currentName,
+                    onValueChange = { viewModel.updateCurrentName(it) },
                     label = { Text("Task Name*") },
-                    isError = uiState.currentName.isBlank(),
-                    singleLine = true
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 100.dp, max = 250.dp),
+                    isError = uiState.currentName.isBlank()
                 )
             }
         },

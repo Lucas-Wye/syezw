@@ -39,6 +39,16 @@ pub struct PeriodSyncItem {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct ProductSyncItem {
+    pub id: String,
+    pub name: String,
+    pub timestamp: i64,
+    pub updated_at: i64,
+    pub payload: EncryptedBlob,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DiaryImageSyncItem {
     pub file_name: String,
     pub diary_uuid: String,
@@ -53,6 +63,8 @@ pub struct SyncUploadRequest {
     pub todos: Vec<TodoSyncItem>,
     pub periods: Vec<PeriodSyncItem>,
     pub images: Vec<DiaryImageSyncItem>,
+    #[serde(default)]
+    pub products: Vec<ProductSyncItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -61,6 +73,8 @@ pub struct SyncCounts {
     pub todos: usize,
     pub periods: usize,
     pub images: usize,
+    #[serde(default)]
+    pub products: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -86,6 +100,8 @@ pub struct SyncDownloadRequest {
     pub todos: Vec<SyncMeta>,
     #[serde(default)]
     pub periods: Vec<PeriodMeta>,
+    #[serde(default)]
+    pub products: Vec<SyncMeta>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -154,6 +170,8 @@ pub struct SyncDownloadResponse {
     pub todos: Vec<TodoSyncItem>,
     pub periods: Vec<PeriodSyncItem>,
     pub images: Vec<DiaryImageSyncItem>,
+    #[serde(default)]
+    pub products: Vec<ProductSyncItem>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -161,4 +179,6 @@ pub struct SyncMetaResponse {
     pub diaries: Vec<SyncMeta>,
     pub todos: Vec<SyncMeta>,
     pub periods: Vec<PeriodMeta>,
+    #[serde(default)]
+    pub products: Vec<SyncMeta>,
 }
