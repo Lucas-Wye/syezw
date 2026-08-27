@@ -16,18 +16,59 @@ data class ProductUiState(val offers: List<ProductOffer> = emptyList(), val sear
 class ProductViewModel(private val dao: ProductOfferDao) : ViewModel() {
     private val _uiState = MutableStateFlow(ProductUiState())
     val uiState: StateFlow<ProductUiState> = _uiState.asStateFlow()
-    init { viewModelScope.launch { dao.getAll().collect { offers -> _uiState.update { it.copy(offers = offers) } } } }
-    fun setSearchQuery(value: String) { _uiState.update { it.copy(searchQuery = value) } }
-    fun openProduct(name: String) { _uiState.update { it.copy(selectedName = name) } }
-    fun closeProduct() { _uiState.update { it.copy(selectedName = null, editingOffer = null) } }
-    fun edit(offer: ProductOffer) { _uiState.update { it.copy(editingOffer = offer) } }
-    fun cancelEdit() { _uiState.update { it.copy(editingOffer = null) } }
-    fun save(offer: ProductOffer) { viewModelScope.launch { val now = System.currentTimeMillis(); val stamped = offer.copy(timestamp = now, updatedAt = now); if (stamped.id == 0) dao.insert(stamped) else dao.update(stamped); _uiState.update { it.copy(editingOffer = null, selectedName = stamped.name) } } }
-    fun delete(offer: ProductOffer) { viewModelScope.launch { dao.delete(offer) } }
-    fun visibleOffers(): List<ProductOffer> { val q = _uiState.value.searchQuery.trim(); return if (q.isBlank()) _uiState.value.offers else _uiState.value.offers.filter { it.name.contains(q, true) || it.merchant.contains(q, true) } }
+
+    init {
+        viewModelScope.launch { dao.getAll().collect { offers -> _uiState.update { it.copy(offers = offers) } } }
+    }
+
+    fun setSearchQuery(value: String) {
+        _uiState.update { it.copy(searchQuery = value) }
+    }
+
+    fun openProduct(name: String) {
+        _uiState.update { it.copy(selectedName = name) }
+    }
+
+    fun closeProduct() {
+        _uiState.update { it.copy(selectedName = null, editingOffer = null) }
+    }
+
+    fun edit(offer: ProductOffer) {
+        _uiState.update { it.copy(editingOffer = offer) }
+    }
+
+    fun cancelEdit() {
+        _uiState.update { it.copy(editingOffer = null) }
+    }
+
+    fun save(offer: ProductOffer) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val stamped = offer.copy(timestamp = now, updatedAt = now)
+            if (stamped.id == 0) dao.insert(stamped) else dao.update(stamped)
+            _uiState.update { it.copy(editingOffer = null, selectedName = stamped.name) }
+        }
+    }
+
+    fun delete(offer: ProductOffer) {
+        viewModelScope.launch { dao.delete(offer) }
+    }
+
+    fun visibleOffers(): List<ProductOffer> {
+        val q = _uiState.value.searchQuery.trim()
+        return if (q.isBlank()) {
+            _uiState.value.offers
+        } else {
+            _uiState.value.offers.filter {
+                it.name.contains(q, true) || it.merchant.contains(q, true)
+            }
+        }
+    }
+
     fun offersForSelected(): List<ProductOffer> = _uiState.value.offers.filter { it.name == _uiState.value.selectedName }
 }
 
 class ProductViewModelFactory(private val dao: ProductOfferDao) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST") override fun <T : ViewModel> create(modelClass: Class<T>): T = ProductViewModel(dao) as T
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T = ProductViewModel(dao) as T
 }

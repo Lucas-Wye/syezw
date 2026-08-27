@@ -22,9 +22,8 @@ import java.util.concurrent.TimeUnit
 
 class GpsWorker(
     private val context: Context,
-    params: WorkerParameters
+    params: WorkerParameters,
 ) : CoroutineWorker(context, params) {
-
     companion object {
         private const val TAG = "GpsWorker"
         const val WORKER_TAG = "gps_location_worker"
@@ -41,27 +40,29 @@ class GpsWorker(
             val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
             val database = AppDatabase.getDatabase(context)
 
-            val location = withContext(Dispatchers.IO) {
-                try {
-                    Tasks.await(
-                        fusedLocationClient.getCurrentLocation(
-                            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                            null
-                        ),
-                        30, TimeUnit.SECONDS
-                    )
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to get current location", e)
-                    null
+            val location =
+                withContext(Dispatchers.IO) {
+                    try {
+                        Tasks.await(
+                            fusedLocationClient.getCurrentLocation(
+                                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                                null,
+                            ),
+                            30,
+                            TimeUnit.SECONDS,
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to get current location", e)
+                        null
+                    }
                 }
-            }
 
             if (location != null) {
                 val author = readAuthor()
                 GpsLocationSaver.saveLocation(
                     database.gpsLocationDao(),
                     location.toGpsLocationSample(),
-                    author
+                    author,
                 )
                 Result.success()
             } else {
