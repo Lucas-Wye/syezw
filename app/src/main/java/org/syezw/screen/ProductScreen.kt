@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -90,6 +91,21 @@ private fun ProductDetailScreen(
     val comparable = offers.size > 1
     val minimum = offers.minOfOrNull { it.unitPrice }
     val maximum = offers.maxOfOrNull { it.unitPrice }
+    val displayOffers =
+        if (offers.size > 1) {
+            val sorted = offers.sortedBy { it.unitPrice }
+            val lowest = sorted.first()
+            val highest = sorted.last()
+            listOf(lowest) +
+                if (lowest.uuid == highest.uuid) {
+                    emptyList()
+                } else {
+                    listOf(highest) +
+                        sorted.filter { it.uuid != lowest.uuid && it.uuid != highest.uuid }
+                }
+        } else {
+            offers
+        }
     var deleting by remember { mutableStateOf<ProductOffer?>(null) }
     var editing by remember { mutableStateOf<ProductOffer?>(null) }
     Scaffold(modifier = modifier) { padding ->
@@ -99,7 +115,7 @@ private fun ProductDetailScreen(
                 Text(name, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleLarge)
             }
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(offers, key = { it.uuid }) { offer ->
+                items(displayOffers, key = { it.uuid }) { offer ->
                     val lowest = comparable && offer.unitPrice == minimum
                     val highest = comparable && offer.unitPrice == maximum
                     val cardColor =
@@ -116,17 +132,35 @@ private fun ProductDetailScreen(
                                     if (lowest) Text("最低单价", color = Color(0xFF2E7D32))
                                     if (highest) Text("最高单价", color = Color(0xFFC62828))
                                 }
-                                Text("${number(offer.price)}")
+                                Text("${number(offer.unitPrice)}")
                             }
-                            Text("含量：${number(offer.quantity)} ${offer.quantityUnit}")
-                            Text("单价：${number(offer.unitPrice)} / ${offer.quantityUnit}", color = MaterialTheme.colorScheme.primary)
-                            Text("添加日期：${dateText(offer.timestamp)}", style = MaterialTheme.typography.bodySmall)
-                            Row {
-                                IconButton({ editing = offer }) { Icon(Icons.Default.Edit, "更新") }
+                            Row(
+                                modifier = Modifier.fillMaxWidth().height(30.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "价格 ${number(offer.price)}",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(0.5f),
+                                )
+                                Text(
+                                    "含量 ${number(offer.quantity)} ${offer.quantityUnit}",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(0.5f),
+                                )
+                                IconButton({ editing = offer }) {
+                                    Icon(Icons.Default.Edit, "更新")
+                                }
                                 IconButton(
                                     { deleting = offer },
-                                ) { Icon(Icons.Default.Delete, "删除", tint = MaterialTheme.colorScheme.error) }
+                                ) {
+                                    Icon(Icons.Default.Delete, "删除", tint = MaterialTheme.colorScheme.error)
+                                }
                             }
+                            Text(
+                                text = "${dateText(offer.timestamp)}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
                     }
                 }
