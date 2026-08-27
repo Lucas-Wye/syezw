@@ -158,223 +158,214 @@ fun DiaryScreen(
             }
         },
     ) { paddingValues ->
-        LazyColumn(
-            modifier =
-                Modifier
-                    .padding(paddingValues)
-                    .fillMaxSize()
-                    .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Column(
+            modifier = Modifier.padding(paddingValues).fillMaxSize().padding(16.dp),
         ) {
-            item {
-                Column {
-                    Text(
-                        text = "总共有 ${uiState.allEntries.size} 篇日记，记得写呢",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = "${uiState.availableAuthors.size} 个作者 | ${uiState.availableTags.size} 个标签 | ${uiState.availableLocations.size} 个地点",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            // 搜索框
-            item {
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = { viewModel.setSearchQuery(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("搜索日记内容、标签或地点...") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = "搜索")
-                    },
-                    trailingIcon = {
-                        if (uiState.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "清除搜索")
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large,
+            Column {
+                Text(
+                    text = "总共有 ${uiState.allEntries.size} 篇日记，记得写呢",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "${uiState.availableAuthors.size} 个作者 | ${uiState.availableTags.size} 个标签 | ${uiState.availableLocations.size} 个地点",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-
-            // 筛选区域
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors =
-                        CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        ),
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { expandFilterSection = !expandFilterSection },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "筛选 (${if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null) "已启用" else "未启用"})",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                            )
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = { viewModel.setSearchQuery(it) },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                placeholder = { Text("搜索日记内容、标签或地点...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "清除搜索")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.large,
+            )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // 筛选区域
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors =
+                            CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            ),
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { expandFilterSection = !expandFilterSection },
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null) {
-                                    IconButton(
-                                        onClick = { viewModel.clearFilters() },
-                                        modifier = Modifier.padding(0.dp),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Clear,
-                                            contentDescription = "清除筛选",
-                                            tint = MaterialTheme.colorScheme.error,
-                                        )
-                                    }
-                                }
-                                Icon(
-                                    if (expandFilterSection) Icons.Default.Clear else Icons.Default.Menu,
-                                    contentDescription = if (expandFilterSection) "收起" else "展开",
-                                )
-                            }
-                        }
-
-                        if (expandFilterSection) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            HorizontalDivider()
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // 按标签筛选
-                            Text(
-                                text = "按标签筛选:",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            if (uiState.availableTags.isEmpty()) {
                                 Text(
-                                    text = "暂无标签",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                )
-                            } else {
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    uiState.availableTags.forEach { tag ->
-                                        FilterChip(
-                                            selected = uiState.selectedFilterTag == tag,
-                                            onClick = {
-                                                if (uiState.selectedFilterTag == tag) {
-                                                    viewModel.setFilterTag(null)
-                                                } else {
-                                                    viewModel.setFilterTag(tag)
-                                                }
-                                            },
-                                            label = {
-                                                Text(
-                                                    tag,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                )
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // 按作者筛选
-                            Text(
-                                text = "按作者筛选:",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            if (uiState.availableAuthors.isEmpty()) {
-                                Text(
-                                    text = "暂无作者",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                )
-                            } else {
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    uiState.availableAuthors.take(5).forEach { author ->
-                                        FilterChip(
-                                            selected = uiState.selectedFilterAuthor == author,
-                                            onClick = {
-                                                if (uiState.selectedFilterAuthor == author) {
-                                                    viewModel.setFilterAuthor(null)
-                                                } else {
-                                                    viewModel.setFilterAuthor(author)
-                                                }
-                                            },
-                                            label = {
-                                                Text(
-                                                    author,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                )
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-
-                            // 显示筛选结果统计
-                            if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "显示 ${uiState.entries.size} / ${uiState.allEntries.size} 篇日记",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    text = "筛选 (${if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null) "已启用" else "未启用"})",
+                                    style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                 )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null) {
+                                        IconButton(
+                                            onClick = { viewModel.clearFilters() },
+                                            modifier = Modifier.padding(0.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Clear,
+                                                contentDescription = "清除筛选",
+                                                tint = MaterialTheme.colorScheme.error,
+                                            )
+                                        }
+                                    }
+                                    Icon(
+                                        if (expandFilterSection) Icons.Default.Clear else Icons.Default.Menu,
+                                        contentDescription = if (expandFilterSection) "收起" else "展开",
+                                    )
+                                }
+                            }
+
+                            if (expandFilterSection) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider()
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // 按标签筛选
+                                Text(
+                                    text = "按标签筛选:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                if (uiState.availableTags.isEmpty()) {
+                                    Text(
+                                        text = "暂无标签",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    )
+                                } else {
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        uiState.availableTags.forEach { tag ->
+                                            FilterChip(
+                                                selected = uiState.selectedFilterTag == tag,
+                                                onClick = {
+                                                    if (uiState.selectedFilterTag == tag) {
+                                                        viewModel.setFilterTag(null)
+                                                    } else {
+                                                        viewModel.setFilterTag(tag)
+                                                    }
+                                                },
+                                                label = {
+                                                    Text(
+                                                        tag,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                    )
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // 按作者筛选
+                                Text(
+                                    text = "按作者筛选:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                if (uiState.availableAuthors.isEmpty()) {
+                                    Text(
+                                        text = "暂无作者",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    )
+                                } else {
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        uiState.availableAuthors.take(5).forEach { author ->
+                                            FilterChip(
+                                                selected = uiState.selectedFilterAuthor == author,
+                                                onClick = {
+                                                    if (uiState.selectedFilterAuthor == author) {
+                                                        viewModel.setFilterAuthor(null)
+                                                    } else {
+                                                        viewModel.setFilterAuthor(author)
+                                                    }
+                                                },
+                                                label = {
+                                                    Text(
+                                                        author,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                    )
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // 显示筛选结果统计
+                                if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "显示 ${uiState.entries.size} / ${uiState.allEntries.size} 篇日记",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if (uiState.entries.isEmpty()) {
-                item {
-                    Text(
-                        if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null || uiState.searchQuery.isNotEmpty()) {
-                            "没有符合筛选/搜索条件的日记"
-                        } else {
-                            "No diary entries yet. Tap the '+' button to add one!"
-                        },
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                    )
+                if (uiState.entries.isEmpty()) {
+                    item {
+                        Text(
+                            if (uiState.selectedFilterTag != null || uiState.selectedFilterAuthor != null || uiState.searchQuery.isNotEmpty()) {
+                                "没有符合筛选/搜索条件的日记"
+                            } else {
+                                "No diary entries yet. Tap the '+' button to add one!"
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                        )
+                    }
                 }
-            }
-            itemsIndexed(uiState.entries) { index, entry -> // Use itemsIndexed
-                val backgroundColor = diaryBackgroundColors[index % diaryBackgroundColors.size]
-                DiaryEntryItem(entry = entry, backgroundColor = backgroundColor, onEditClick = {
-                    viewModel.getEntryById(entry.id)
-                    showAddEditDialog = true
-                }, onDeleteClick = { viewModel.deleteEntry(entry) }, onViewClick = {
-                    detailEntry = entry
-                })
+                itemsIndexed(uiState.entries) { index, entry -> // Use itemsIndexed
+                    val backgroundColor = diaryBackgroundColors[index % diaryBackgroundColors.size]
+                    DiaryEntryItem(entry = entry, backgroundColor = backgroundColor, onEditClick = {
+                        viewModel.getEntryById(entry.id)
+                        showAddEditDialog = true
+                    }, onDeleteClick = { viewModel.deleteEntry(entry) }, onViewClick = {
+                        detailEntry = entry
+                    })
+                }
             }
         }
 

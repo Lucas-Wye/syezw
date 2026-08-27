@@ -4,14 +4,9 @@ $env:http_proxy="http://127.0.0.1:7897"
 $env:https_proxy="http://127.0.0.1:7897"
 $env:JAVA_TOOL_OPTIONS='-DproxySet=true -DproxyHost=127.0.0.1 -DproxyPort=7897'
 
-set http_proxy=http://127.0.0.1:7897
-set https_proxy=http://127.0.0.1:7897
-set JAVA_TOOL_OPTIONS='-DproxySet=true -DproxyHost=127.0.0.1 -DproxyPort=7897'
-
 export http_proxy="http://127.0.0.1:7897"
 export https_proxy="http://127.0.0.1:7897"
 export JAVA_TOOL_OPTIONS='-DproxySet=true -DproxyHost=127.0.0.1 -DproxyPort=7897'
-
 
 ./gradlew test
 ./gradlew compileDebugSources
@@ -21,27 +16,22 @@ export JAVA_TOOL_OPTIONS='-DproxySet=true -DproxyHost=127.0.0.1 -DproxyPort=7897
 
 # Release
 ```
-keytool -genkeypair `
-    -alias syezw_release `
-    -keyalg RSA `
-    -keysize 2048 `
-    -validity 10000 `
-    -keystore ./app/release.keystore
+keytool -genkeypair -alias syezw_release -keyalg RSA -keysize 2048 -validity 10000 -keystore ./app/release.keystore
 ```
 
 ```
 $env:RELEASE_STORE_FILE="release.keystore"
-$env:RELEASE_STORE_PASSWORD="syezw2025"
+$env:RELEASE_STORE_PASSWORD="syezw2026"
 $env:RELEASE_KEY_ALIAS="syezw_release"
-$env:RELEASE_KEY_PASSWORD="syezw2025"
+$env:RELEASE_KEY_PASSWORD="syezw2026"
 
-set RELEASE_STORE_FILE=release.keystore
-set RELEASE_STORE_PASSWORD=syezw2025
-set RELEASE_KEY_ALIAS=syezw_release
-set RELEASE_KEY_PASSWORD=syezw2025
+export RELEASE_STORE_FILE=release.keystore
+export RELEASE_STORE_PASSWORD=syezw2026
+export RELEASE_KEY_ALIAS=syezw_release
+export RELEASE_KEY_PASSWORD=syezw2026
 ```
-.\gradlew compileReleaseSources
-.\gradlew assembleRelease
+./gradlew compileReleaseSources
+./gradlew assembleRelease
 ```
 
 # Java Downlaod

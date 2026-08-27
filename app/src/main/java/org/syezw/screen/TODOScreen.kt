@@ -121,71 +121,62 @@ fun TODOScreen(
             }
         },
     ) { paddingValues ->
-        LazyColumn(
-            modifier =
-                Modifier
-                    .padding(paddingValues)
-                    .fillMaxSize()
-                    .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Column(
+            modifier = Modifier.padding(paddingValues).fillMaxSize().padding(16.dp),
         ) {
-            item {
-                Text(
-                    text = "总共有 ${uiState.allTasks.size} 个任务，记得做啊！",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            // 搜索框
-            item {
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = { viewModel.setSearchQuery(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("搜索任务名称...") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = "搜索")
-                    },
-                    trailingIcon = {
-                        if (uiState.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "清除搜索")
-                            }
+            Text(
+                text = "总共有 ${uiState.allTasks.size} 个任务，记得做啊！",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = { viewModel.setSearchQuery(it) },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                placeholder = { Text("搜索任务名称...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "清除搜索")
                         }
-                    },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large,
-                )
-            }
-
-            if (uiState.tasks.isEmpty()) {
-                item {
-                    Text(
-                        if (uiState.searchQuery.isNotEmpty()) {
-                            "没有符合搜索条件的任务"
-                        } else {
-                            "No tasks yet. Tap the '+' button to add one!"
+                    }
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.large,
+            )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (uiState.tasks.isEmpty()) {
+                    item {
+                        Text(
+                            if (uiState.searchQuery.isNotEmpty()) {
+                                "没有符合搜索条件的任务"
+                            } else {
+                                "No tasks yet. Tap the '+' button to add one!"
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
+                }
+                items(uiState.tasks, key = { it.id }) { task ->
+                    TodoTaskItem(
+                        task = task,
+                        onEditClick = {
+                            viewModel.selectTask(task)
+                            showAddEditDialog = true
                         },
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        onDeleteClick = { viewModel.deleteTask(task) },
+                        onToggleComplete = { viewModel.toggleCompletion(task) },
                     )
                 }
-            }
-            items(uiState.tasks, key = { it.id }) { task ->
-                TodoTaskItem(
-                    task = task,
-                    onEditClick = {
-                        viewModel.selectTask(task)
-                        showAddEditDialog = true
-                    },
-                    onDeleteClick = { viewModel.deleteTask(task) },
-                    onToggleComplete = { viewModel.toggleCompletion(task) },
-                )
             }
         }
 

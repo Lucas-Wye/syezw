@@ -35,43 +35,37 @@ fun ProductScreen(
     Scaffold(modifier = modifier, floatingActionButton = {
         FloatingActionButton({ adding = true }) { Icon(Icons.Default.Add, "添加商品") }
     }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item {
-                OutlinedTextField(
-                    state.searchQuery,
-                    viewModel::setSearchQuery,
-                    Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    placeholder = {
-                        Text("搜索商品或商家...")
-                    },
-                    shape = MaterialTheme.shapes.large,
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, "搜索")
-                    },
-                    trailingIcon = {
-                        if (state.searchQuery.isNotEmpty()) {
-                            IconButton(
-                                { viewModel.setSearchQuery("") },
-                            ) { Icon(Icons.Default.Clear, "清除") }
+        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            OutlinedTextField(
+                state.searchQuery,
+                viewModel::setSearchQuery,
+                Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                singleLine = true,
+                placeholder = { Text("搜索商品或商家...") },
+                shape = MaterialTheme.shapes.large,
+                leadingIcon = { Icon(Icons.Default.Search, "搜索") },
+                trailingIcon = {
+                    if (state.searchQuery.isNotEmpty()) {
+                        IconButton({ viewModel.setSearchQuery("") }) { Icon(Icons.Default.Clear, "清除") }
+                    }
+                },
+            )
+            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (grouped.isEmpty()) item { Text("暂无商品，点击右下角添加", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                items(grouped.entries.toList(), key = { it.key }) { (name, entries) ->
+                    val colors = listOf(Color(0xFFE8F5E9), Color(0xFFFFF3E0), Color(0xFFE3F2FD), Color(0xFFF3E5F5))
+                    val cheapest = entries.minBy { it.unitPrice }
+                    Card(
+                        Modifier.fillMaxWidth().clickable {
+                            viewModel.openProduct(name)
+                        },
+                        colors = CardDefaults.cardColors(colors[name.hashCode().ushr(1) % colors.size]),
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text(name, style = MaterialTheme.typography.titleMedium)
+                            Text("${entries.size} 个商家 · 最低单价 ${number(cheapest.unitPrice)}/${cheapest.quantityUnit}（${cheapest.merchant}）")
+                            Text(entries.joinToString("、") { it.merchant }, style = MaterialTheme.typography.bodySmall)
                         }
-                    },
-                )
-            }
-            if (grouped.isEmpty()) item { Text("暂无商品，点击右下角添加", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            items(grouped.entries.toList(), key = { it.key }) { (name, entries) ->
-                val colors = listOf(Color(0xFFE8F5E9), Color(0xFFFFF3E0), Color(0xFFE3F2FD), Color(0xFFF3E5F5))
-                val cheapest = entries.minBy { it.unitPrice }
-                Card(
-                    Modifier.fillMaxWidth().clickable {
-                        viewModel.openProduct(name)
-                    },
-                    colors = CardDefaults.cardColors(colors[name.hashCode().ushr(1) % colors.size]),
-                ) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text(name, style = MaterialTheme.typography.titleMedium)
-                        Text("${entries.size} 个商家 · 最低单价 ¥${number(cheapest.unitPrice)}/${cheapest.quantityUnit}（${cheapest.merchant}）")
-                        Text(entries.joinToString("、") { it.merchant }, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -99,38 +93,40 @@ private fun ProductDetailScreen(
     var deleting by remember { mutableStateOf<ProductOffer?>(null) }
     var editing by remember { mutableStateOf<ProductOffer?>(null) }
     Scaffold(modifier = modifier) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item {
-                Row(Modifier.fillMaxWidth()) {
-                    IconButton(viewModel::closeProduct) { Icon(Icons.Default.ArrowBack, "返回") }
-                    Text(name, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleLarge)
-                }
+        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            Row(Modifier.fillMaxWidth()) {
+                IconButton(viewModel::closeProduct) { Icon(Icons.Default.ArrowBack, "返回") }
+                Text(name, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleLarge)
             }
-            items(offers, key = { it.uuid }) { offer ->
-                val lowest = comparable && offer.unitPrice == minimum
-                val highest = comparable && offer.unitPrice == maximum
-                val cardColor =
-                    when {
-                        lowest -> Color(0xFFE8F5E9)
-                        highest -> Color(0xFFFFEBEE)
-                        else -> MaterialTheme.colorScheme.surface
-                    }
-                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(cardColor)) {
-                    Column(Modifier.padding(14.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {
-                                Text(offer.merchant, style = MaterialTheme.typography.titleMedium)
-                                if (lowest) Text("最低单价", color = Color(0xFF2E7D32))
-                                if (highest) Text("最高单价", color = Color(0xFFC62828))
-                            }
-                            Text("¥${number(offer.price)}")
+            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(offers, key = { it.uuid }) { offer ->
+                    val lowest = comparable && offer.unitPrice == minimum
+                    val highest = comparable && offer.unitPrice == maximum
+                    val cardColor =
+                        when {
+                            lowest -> Color(0xFFE8F5E9)
+                            highest -> Color(0xFFFFEBEE)
+                            else -> MaterialTheme.colorScheme.surface
                         }
-                        Text("含量：${number(offer.quantity)} ${offer.quantityUnit}")
-                        Text("单价：¥${number(offer.unitPrice)} / ${offer.quantityUnit}", color = MaterialTheme.colorScheme.primary)
-                        Text("添加日期：${dateText(offer.timestamp)}", style = MaterialTheme.typography.bodySmall)
-                        Row {
-                            IconButton({ editing = offer }) { Icon(Icons.Default.Edit, "更新") }
-                            IconButton({ deleting = offer }) { Icon(Icons.Default.Delete, "删除", tint = MaterialTheme.colorScheme.error) }
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(cardColor)) {
+                        Column(Modifier.padding(14.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column {
+                                    Text(offer.merchant, style = MaterialTheme.typography.titleMedium)
+                                    if (lowest) Text("最低单价", color = Color(0xFF2E7D32))
+                                    if (highest) Text("最高单价", color = Color(0xFFC62828))
+                                }
+                                Text("${number(offer.price)}")
+                            }
+                            Text("含量：${number(offer.quantity)} ${offer.quantityUnit}")
+                            Text("单价：${number(offer.unitPrice)} / ${offer.quantityUnit}", color = MaterialTheme.colorScheme.primary)
+                            Text("添加日期：${dateText(offer.timestamp)}", style = MaterialTheme.typography.bodySmall)
+                            Row {
+                                IconButton({ editing = offer }) { Icon(Icons.Default.Edit, "更新") }
+                                IconButton(
+                                    { deleting = offer },
+                                ) { Icon(Icons.Default.Delete, "删除", tint = MaterialTheme.colorScheme.error) }
+                            }
                         }
                     }
                 }
