@@ -17,7 +17,7 @@ data class DiaryImport(
     val timestamp: Long? = null,
     val updatedAt: Long? = null,
     val location: String? = null,
-    val imageUris: List<String>? = null
+    val imageUris: List<String>? = null,
 ) {
     fun toDiary(): Diary {
         return Diary(
@@ -29,7 +29,7 @@ data class DiaryImport(
             timestamp = timestamp ?: System.currentTimeMillis(),
             updatedAt = updatedAt ?: timestamp ?: System.currentTimeMillis(),
             location = location,
-            imageUris = imageUris ?: emptyList()
+            imageUris = imageUris ?: emptyList(),
         )
     }
 }
@@ -42,7 +42,7 @@ data class TodoTaskImport(
     val isCompleted: Boolean? = null,
     val createdAt: Long? = null,
     val completedAt: Long? = null,
-    val updatedAt: Long? = null
+    val updatedAt: Long? = null,
 ) {
     fun toTodoTask(): TodoTask {
         return TodoTask(
@@ -53,7 +53,7 @@ data class TodoTaskImport(
             isCompleted = isCompleted ?: false,
             createdAt = createdAt ?: System.currentTimeMillis(),
             completedAt = completedAt,
-            updatedAt = updatedAt ?: createdAt ?: System.currentTimeMillis()
+            updatedAt = updatedAt ?: createdAt ?: System.currentTimeMillis(),
         )
     }
 }
@@ -62,7 +62,7 @@ data class PeriodRecordImport(
     val startDate: String? = null,
     val endDate: String? = null,
     val notes: String? = null,
-    val updatedAt: Long? = null
+    val updatedAt: Long? = null,
 ) {
     fun toPeriodRecord(): PeriodRecord? {
         val start = startDate?.let { LocalDate.parse(it) } ?: return null
@@ -71,7 +71,7 @@ data class PeriodRecordImport(
             startDate = start,
             endDate = end,
             notes = notes,
-            updatedAt = updatedAt ?: System.currentTimeMillis()
+            updatedAt = updatedAt ?: System.currentTimeMillis(),
         )
     }
 }

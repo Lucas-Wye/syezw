@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class AppDestinations(
@@ -16,5 +17,6 @@ enum class AppDestinations(
     TODO(label = "Todo", icon = Icons.Default.Check),
     PERIOD(label = "Period", icon = Icons.Default.DateRange),
     DIARY(label = "Diary", icon = Icons.Default.MailOutline),
+    PRODUCTS(label = "Prices", icon = Icons.Default.ShoppingCart),
     SETTINGS("Settings", Icons.Filled.Settings),
 }

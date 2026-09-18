@@ -41,6 +41,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.syezw.data.AppDatabase
 import org.syezw.data.Diary
+import org.syezw.data.ProductOffer
 import org.syezw.data.TodoTask
 import org.syezw.preference.SettingsManager
 import org.syezw.sync.DiaryImageRefItem
@@ -56,6 +57,8 @@ import org.syezw.sync.ImageUploadRequest
 import org.syezw.sync.PeriodMeta
 import org.syezw.sync.PeriodPayload
 import org.syezw.sync.PeriodSyncItem
+import org.syezw.sync.ProductPayload
+import org.syezw.sync.ProductSyncItem
 import org.syezw.sync.SyncCounts
 import org.syezw.sync.SyncDownloadEnvelope
 import org.syezw.sync.SyncDownloadRequest
@@ -92,14 +95,14 @@ data class UnusedDiaryImageState(
     val unusedPaths: List<String> = emptyList(),
     val usedPaths: List<String> = emptyList(),
     val scannedPaths: List<String> = emptyList(),
-    val lastCheckedAt: Long? = null
+    val lastCheckedAt: Long? = null,
 )
 
 data class SyncLogEntry(
     val timestamp: Long,
     val action: String,
     val success: Boolean,
-    val message: String
+    val message: String,
 )
 
 data class SyncCountSummary(
@@ -107,31 +110,35 @@ data class SyncCountSummary(
     val todos: Int = 0,
     val periods: Int = 0,
     val imageUploads: Int = 0,
-    val imageDownloads: Int = 0
+    val imageDownloads: Int = 0,
 )
 
 data class SyncProgressState(
     val inProgress: Boolean = false,
     val percent: Int = 0,
-    val message: String = ""
+    val message: String = "",
 )
 
 class SettingsViewModel(
     private val application: Application,
     private val database: AppDatabase,
     private val dataStore: DataStore<Preferences>,
-    private val settingsManager: SettingsManager
+    private val settingsManager: SettingsManager,
 ) : AndroidViewModel(application) {
-
-    private val gson = GsonBuilder().registerTypeAdapter(
-        LocalDate::class.java, JsonDeserializer { json, _, _ ->
-            LocalDate.parse(json.asString, DateTimeFormatter.ISO_LOCAL_DATE)
-        })
-        // 注册 Serializer 是一个好习惯，尽管此 ViewModel 主要用于反序列化
-        .registerTypeAdapter(
-            LocalDate::class.java, JsonSerializer<LocalDate> { src, _, _ ->
-                JsonPrimitive(src.format(DateTimeFormatter.ISO_LOCAL_DATE))
-            }).create()
+    private val gson =
+        GsonBuilder().registerTypeAdapter(
+            LocalDate::class.java,
+            JsonDeserializer { json, _, _ ->
+                LocalDate.parse(json.asString, DateTimeFormatter.ISO_LOCAL_DATE)
+            },
+        )
+            // 注册 Serializer 是一个好习惯，尽管此 ViewModel 主要用于反序列化
+            .registerTypeAdapter(
+                LocalDate::class.java,
+                JsonSerializer<LocalDate> { src, _, _ ->
+                    JsonPrimitive(src.format(DateTimeFormatter.ISO_LOCAL_DATE))
+                },
+            ).create()
 
     private object PreferencesKeys {
         val PERIOD_TRACKING_ENABLED = booleanPreferencesKey("period_tracking_enabled")
@@ -168,20 +175,26 @@ class SettingsViewModel(
 
     val dateTogether: Flow<String> = settingsManager.dateFlow
 
-    val tradeRecordState: Flow<TradeRecordState> = dataStore.data.map { preferences ->
-        TradeJson.tradeRecordStateFromJson(preferences[PreferencesKeys.TRADE_RECORD_STATE])
-    }
+    val tradeRecordState: Flow<TradeRecordState> =
+        dataStore.data.map { preferences ->
+            TradeJson.tradeRecordStateFromJson(preferences[PreferencesKeys.TRADE_RECORD_STATE])
+        }
 
-    val isPeriodTrackingEnabledStateFlow: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.PERIOD_TRACKING_ENABLED] ?: false
-    }
+    val isPeriodTrackingEnabledStateFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.PERIOD_TRACKING_ENABLED] ?: false
+        }
 
-    val isPeriodTrackingEnabled = isPeriodTrackingEnabledStateFlow.stateIn(
-        scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = false
-    )
-    val periodData: Flow<String> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.PERIOD_DATA] ?: ""
-    }
+    val isPeriodTrackingEnabled =
+        isPeriodTrackingEnabledStateFlow.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false,
+        )
+    val periodData: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.PERIOD_DATA] ?: ""
+        }
 
     private val _unusedDiaryImageState = MutableStateFlow(UnusedDiaryImageState())
     val unusedDiaryImageState = _unusedDiaryImageState.asStateFlow()
@@ -219,45 +232,54 @@ class SettingsViewModel(
 
     val loveBgEnabled: Flow<Boolean> = settingsManager.loveBgEnabledFlow
 
-    val gpsEnabled: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[GpsPrefKeys.GPS_ENABLED] ?: false
-    }
+    val gpsEnabled: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[GpsPrefKeys.GPS_ENABLED] ?: false
+        }
 
-    val gpsPriority: Flow<String> = dataStore.data.map { preferences ->
-        preferences[GpsPrefKeys.GPS_PRIORITY] ?: "balanced"
-    }
+    val gpsPriority: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[GpsPrefKeys.GPS_PRIORITY] ?: "balanced"
+        }
 
-    val gpsIntervalMs: Flow<Long> = dataStore.data.map { preferences ->
-        preferences[GpsPrefKeys.GPS_INTERVAL_MS]?.toLongOrNull() ?: 10_000L
-    }
+    val gpsIntervalMs: Flow<Long> =
+        dataStore.data.map { preferences ->
+            preferences[GpsPrefKeys.GPS_INTERVAL_MS]?.toLongOrNull() ?: 10_000L
+        }
 
-    val gpsFastestIntervalMs: Flow<Long> = dataStore.data.map { preferences ->
-        preferences[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS]?.toLongOrNull() ?: 5_000L
-    }
+    val gpsFastestIntervalMs: Flow<Long> =
+        dataStore.data.map { preferences ->
+            preferences[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS]?.toLongOrNull() ?: 5_000L
+        }
 
-    val gpsWorkmanagerStartTime: Flow<Long> = dataStore.data.map { preferences ->
-        preferences[GpsPrefKeys.GPS_WORKMANAGER_START_TIME]?.toLongOrNull() ?: 0L
-    }
+    val gpsWorkmanagerStartTime: Flow<Long> =
+        dataStore.data.map { preferences ->
+            preferences[GpsPrefKeys.GPS_WORKMANAGER_START_TIME]?.toLongOrNull() ?: 0L
+        }
 
-    val remoteApiBaseUrl: Flow<String> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.REMOTE_API_BASE_URL] ?: ""
-    }
+    val remoteApiBaseUrl: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.REMOTE_API_BASE_URL] ?: ""
+        }
 
-    val remoteApiKey: Flow<String> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.REMOTE_API_KEY] ?: ""
-    }
+    val remoteApiKey: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.REMOTE_API_KEY] ?: ""
+        }
 
-    val aesPassphrase: Flow<String> = dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.AES_PASSPHRASE] ?: ""
-    }
+    val aesPassphrase: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[PreferencesKeys.AES_PASSPHRASE] ?: ""
+        }
 
-    val syncLogs: Flow<List<SyncLogEntry>> = dataStore.data.map { preferences ->
-        val json = preferences[PreferencesKeys.SYNC_LOGS] ?: "[]"
-        runCatching {
-            val type = object : TypeToken<List<SyncLogEntry>>() {}.type
-            gson.fromJson<List<SyncLogEntry>>(json, type)
-        }.getOrDefault(emptyList())
-    }
+    val syncLogs: Flow<List<SyncLogEntry>> =
+        dataStore.data.map { preferences ->
+            val json = preferences[PreferencesKeys.SYNC_LOGS] ?: "[]"
+            runCatching {
+                val type = object : TypeToken<List<SyncLogEntry>>() {}.type
+                gson.fromJson<List<SyncLogEntry>>(json, type)
+            }.getOrDefault(emptyList())
+        }
 
     suspend fun setLoveBgImageUri(uri: String?) {
         settingsManager.setLoveBgImageUri(uri)
@@ -301,25 +323,29 @@ class SettingsViewModel(
 
     fun exportGpsData() {
         viewModelScope.launch(Dispatchers.IO) {
-            suspend fun showToast(message: String, long: Boolean = true) {
+            suspend fun showToast(
+                message: String,
+                long: Boolean = true,
+            ) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         application,
                         message,
-                        if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+                        if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT,
                     ).show()
                 }
             }
 
-            val locations = try {
-                database.gpsLocationDao().getAllList()
-            } catch (e: SQLiteException) {
-                showToast("导出失败: ${e.message}")
-                return@launch
-            } catch (e: IllegalStateException) {
-                showToast("导出失败: ${e.message}")
-                return@launch
-            }
+            val locations =
+                try {
+                    database.gpsLocationDao().getAllList()
+                } catch (e: SQLiteException) {
+                    showToast("导出失败: ${e.message}")
+                    return@launch
+                } catch (e: IllegalStateException) {
+                    showToast("导出失败: ${e.message}")
+                    return@launch
+                }
             if (locations.isEmpty()) {
                 showToast("暂无GPS数据可导出", long = false)
                 return@launch
@@ -334,23 +360,25 @@ class SettingsViewModel(
                 val ts = lineSdf.format(java.util.Date(loc.timestamp))
                 val endTs = loc.endTimestamp?.let { lineSdf.format(java.util.Date(it)) } ?: ""
                 sb.appendLine(
-                    "${loc.latitude},${loc.longitude},${loc.accuracy ?: ""},${loc.altitude ?: ""},${loc.speed ?: ""},${ts},${endTs},${loc.author}"
+                    "${loc.latitude},${loc.longitude},${loc.accuracy ?: ""},${loc.altitude ?: ""},${loc.speed ?: ""},$ts,$endTs,${loc.author}",
                 )
             }
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(MediaStore.Downloads.MIME_TYPE, "text/csv")
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-            }
-            val uri = try {
-                application.contentResolver.insert(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                    values
-                )
-            } catch (e: SecurityException) {
-                showToast("导出失败: ${e.message}")
-                return@launch
-            }
+            val values =
+                ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "text/csv")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+            val uri =
+                try {
+                    application.contentResolver.insert(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        values,
+                    )
+                } catch (e: SecurityException) {
+                    showToast("导出失败: ${e.message}")
+                    return@launch
+                }
             if (uri == null) {
                 showToast("导出失败：无法创建文件")
                 return@launch
@@ -413,45 +441,49 @@ class SettingsViewModel(
 
     fun checkUnusedDiaryImages() {
         viewModelScope.launch(Dispatchers.IO) {
-            _unusedDiaryImageState.value = _unusedDiaryImageState.value.copy(
-                isChecking = true,
-                lastCheckedAt = System.currentTimeMillis()
-            )
+            _unusedDiaryImageState.value =
+                _unusedDiaryImageState.value.copy(
+                    isChecking = true,
+                    lastCheckedAt = System.currentTimeMillis(),
+                )
             try {
-                val usedPaths = database.diaryDao().getAllEntriesList()
-                    .flatMap { it.imageUris }
-                    .mapNotNull {
-                        try {
-                            File(resolveDiaryImagePath(it)).canonicalPath
-                        } catch (e: Exception) {
-                            null
+                val usedPaths =
+                    database.diaryDao().getAllEntriesList()
+                        .flatMap { it.imageUris }
+                        .mapNotNull {
+                            try {
+                                File(resolveDiaryImagePath(it)).canonicalPath
+                            } catch (e: Exception) {
+                                null
+                            }
                         }
-                    }
-                    .toSet()
+                        .toSet()
 
                 val downloadsDir =
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 val scanned = loadDiaryImagesFromMediaStore(downloadsDir)
                 val unused = scanned.filter { it !in usedPaths }
 
-                _unusedDiaryImageState.value = UnusedDiaryImageState(
-                    isChecking = false,
-                    hasChecked = true,
-                    unusedPaths = unused.sorted(),
-                    usedPaths = usedPaths.sorted(),
-                    scannedPaths = scanned.sorted(),
-                    lastCheckedAt = System.currentTimeMillis()
-                )
+                _unusedDiaryImageState.value =
+                    UnusedDiaryImageState(
+                        isChecking = false,
+                        hasChecked = true,
+                        unusedPaths = unused.sorted(),
+                        usedPaths = usedPaths.sorted(),
+                        scannedPaths = scanned.sorted(),
+                        lastCheckedAt = System.currentTimeMillis(),
+                    )
             } catch (e: Exception) {
                 e.printStackTrace()
-                _unusedDiaryImageState.value = UnusedDiaryImageState(
-                    isChecking = false,
-                    hasChecked = true,
-                    unusedPaths = emptyList(),
-                    usedPaths = emptyList(),
-                    scannedPaths = emptyList(),
-                    lastCheckedAt = System.currentTimeMillis()
-                )
+                _unusedDiaryImageState.value =
+                    UnusedDiaryImageState(
+                        isChecking = false,
+                        hasChecked = true,
+                        unusedPaths = emptyList(),
+                        usedPaths = emptyList(),
+                        scannedPaths = emptyList(),
+                        lastCheckedAt = System.currentTimeMillis(),
+                    )
             }
         }
     }
@@ -460,11 +492,12 @@ class SettingsViewModel(
         val result = mutableListOf<String>()
         val relativePath = diaryImagesRelativePath()
         val resolver = application.contentResolver
-        val projection = arrayOf(
-            MediaStore.MediaColumns.DISPLAY_NAME,
-            MediaStore.MediaColumns.RELATIVE_PATH,
-            MediaStore.MediaColumns.MIME_TYPE
-        )
+        val projection =
+            arrayOf(
+                MediaStore.MediaColumns.DISPLAY_NAME,
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                MediaStore.MediaColumns.MIME_TYPE,
+            )
         val selection = "${MediaStore.MediaColumns.RELATIVE_PATH}=?"
         val selectionArgs = arrayOf(relativePath)
         resolver.query(
@@ -472,7 +505,7 @@ class SettingsViewModel(
             projection,
             selection,
             selectionArgs,
-            null
+            null,
         )?.use { cursor ->
             val nameIdx = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
             val relIdx = cursor.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
@@ -579,10 +612,11 @@ class SettingsViewModel(
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
-                        context, "导入完成，共处理 $importedCount 条记录", Toast.LENGTH_LONG
+                        context,
+                        "导入完成，共处理 $importedCount 条记录",
+                        Toast.LENGTH_LONG,
                     ).show()
                 }
-
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
@@ -592,7 +626,10 @@ class SettingsViewModel(
         }
     }
 
-    private fun readJson(context: Context, uri: Uri): String {
+    private fun readJson(
+        context: Context,
+        uri: Uri,
+    ): String {
         return context.contentResolver.openInputStream(uri)?.use { inputStream ->
             BufferedReader(InputStreamReader(inputStream)).use { reader ->
                 reader.readText()
@@ -617,8 +654,8 @@ class SettingsViewModel(
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
                             application,
-                            "上传过于频繁，请 ${waitSeconds} 秒后再试",
-                            Toast.LENGTH_LONG
+                            "上传过于频繁，请 $waitSeconds 秒后再试",
+                            Toast.LENGTH_LONG,
                         ).show()
                     }
                     setUploadProgress(false, 0, "")
@@ -633,7 +670,7 @@ class SettingsViewModel(
                         Toast.makeText(
                             application,
                             "请先配置远程地址、API Key和AES密钥",
-                            Toast.LENGTH_LONG
+                            Toast.LENGTH_LONG,
                         ).show()
                     }
                     appendSyncLog("upload", false, "缺少远程地址或API Key或AES密钥")
@@ -650,71 +687,103 @@ class SettingsViewModel(
                 val serverTodoMeta = serverMeta?.todos?.associateBy { it.uuid } ?: emptyMap()
                 val serverPeriodMeta =
                     serverMeta?.periods?.associateBy { it.startDate } ?: emptyMap()
+                val serverProductMeta = serverMeta?.products?.associateBy { it.uuid } ?: emptyMap()
 
                 val diaryIds = mutableListOf<Int>()
-                val diaries = database.diaryDao().getAllEntriesList()
-                    .filter { diary ->
-                        val server = serverDiaryMeta[diary.uuid]
-                        server == null || diary.updatedAt > server.updatedAt
-                    }
-                    .also { diaryIds.addAll(it.map { d -> d.id }) }
-                    .map { diary ->
-                        val payload = DiaryPayload(
-                            content = diary.content,
-                            tags = diary.tags,
-                            location = diary.location,
-                            imageUris = diary.imageUris.map(::normalizeDiaryImageName)
-                        )
-                        val payloadJson = gson.toJson(payload)
-                        DiarySyncItem(
-                            uuid = diary.uuid,
-                            author = diary.author,
-                            timestamp = diary.timestamp,
-                            updatedAt = diary.updatedAt,
-                            payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key)
-                        )
-                    }
+                val diaries =
+                    database.diaryDao().getAllEntriesList()
+                        .filter { diary ->
+                            val server = serverDiaryMeta[diary.uuid]
+                            server == null || diary.updatedAt > server.updatedAt
+                        }
+                        .also { diaryIds.addAll(it.map { d -> d.id }) }
+                        .map { diary ->
+                            val payload =
+                                DiaryPayload(
+                                    content = diary.content,
+                                    tags = diary.tags,
+                                    location = diary.location,
+                                    imageUris = diary.imageUris.map(::normalizeDiaryImageName),
+                                )
+                            val payloadJson = gson.toJson(payload)
+                            DiarySyncItem(
+                                uuid = diary.uuid,
+                                author = diary.author,
+                                timestamp = diary.timestamp,
+                                updatedAt = diary.updatedAt,
+                                payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key),
+                            )
+                        }
 
                 val todoIds = mutableListOf<Int>()
-                val todos = database.todoTaskDao().getAllTasksList()
-                    .filter { task ->
-                        val server = serverTodoMeta[task.uuid]
-                        server == null || task.updatedAt > server.updatedAt
-                    }
-                    .also { todoIds.addAll(it.map { t -> t.id }) }
-                    .map { task ->
-                        val payload = TodoPayload(name = task.name)
-                        val payloadJson = gson.toJson(payload)
-                        TodoSyncItem(
-                            uuid = task.uuid,
-                            author = task.author,
-                            isCompleted = task.isCompleted,
-                            createdAt = task.createdAt,
-                            completedAt = task.completedAt,
-                            updatedAt = task.updatedAt,
-                            payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key)
-                        )
-                    }
+                val todos =
+                    database.todoTaskDao().getAllTasksList()
+                        .filter { task ->
+                            val server = serverTodoMeta[task.uuid]
+                            server == null || task.updatedAt > server.updatedAt
+                        }
+                        .also { todoIds.addAll(it.map { t -> t.id }) }
+                        .map { task ->
+                            val payload = TodoPayload(name = task.name)
+                            val payloadJson = gson.toJson(payload)
+                            TodoSyncItem(
+                                uuid = task.uuid,
+                                author = task.author,
+                                isCompleted = task.isCompleted,
+                                createdAt = task.createdAt,
+                                completedAt = task.completedAt,
+                                updatedAt = task.updatedAt,
+                                payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key),
+                            )
+                        }
 
                 val periodStartDates = mutableListOf<Long>()
-                val periods = database.periodDao().getAllRecords().first()
-                    .filter { record ->
-                        val server = serverPeriodMeta[record.startDate.toString()]
-                        server == null || record.updatedAt > server.updatedAt
-                    }
-                    .also { periodStartDates.addAll(it.map { p -> p.startDate.toEpochDay() }) }
-                    .map { record ->
-                        val payload = PeriodPayload(notes = record.notes)
-                        val payloadJson = gson.toJson(payload)
-                        PeriodSyncItem(
-                            startDate = record.startDate.toString(),
-                            endDate = record.endDate.toString(),
-                            updatedAt = record.updatedAt,
-                            payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key)
-                        )
-                    }
+                val periods =
+                    database.periodDao().getAllRecords().first()
+                        .filter { record ->
+                            val server = serverPeriodMeta[record.startDate.toString()]
+                            server == null || record.updatedAt > server.updatedAt
+                        }
+                        .also { periodStartDates.addAll(it.map { p -> p.startDate.toEpochDay() }) }
+                        .map { record ->
+                            val payload = PeriodPayload(notes = record.notes)
+                            val payloadJson = gson.toJson(payload)
+                            PeriodSyncItem(
+                                startDate = record.startDate.toString(),
+                                endDate = record.endDate.toString(),
+                                updatedAt = record.updatedAt,
+                                payload = encryptToBlob(payloadJson.toByteArray(Charsets.UTF_8), key),
+                            )
+                        }
 
                 val images = emptyList<DiaryImageSyncItem>()
+                val products =
+                    database.productOfferDao().getAllList()
+                        .filter { offer -> serverProductMeta[offer.uuid]?.updatedAt?.let { offer.updatedAt > it } ?: true }
+                        .map { offer ->
+                            ProductSyncItem(
+                                id = offer.uuid,
+                                name = offer.name,
+                                timestamp = offer.timestamp,
+                                updatedAt = offer.updatedAt,
+                                discount = offer.discount,
+                                notes = offer.notes,
+                                payload =
+                                    encryptToBlob(
+                                        gson.toJson(
+                                            ProductPayload(
+                                                merchant = offer.merchant,
+                                                price = offer.price,
+                                                discount = offer.discount,
+                                                quantity = offer.quantity,
+                                                quantityUnit = offer.quantityUnit,
+                                                notes = offer.notes,
+                                            ),
+                                        ).toByteArray(),
+                                        key,
+                                    ),
+                            )
+                        }
 
                 val totalTextItems = diaries.size + todos.size + periods.size
                 var processedTextItems = 0
@@ -725,7 +794,7 @@ class SettingsViewModel(
                     setUploadProgress(
                         true,
                         percent,
-                        "上传文本 ${processedTextItems}/${totalTextItems}"
+                        "上传文本 $processedTextItems/$totalTextItems",
                     )
                 }
 
@@ -782,23 +851,36 @@ class SettingsViewModel(
                     updateTextProgress()
                 }
 
-                val imageUploadCount = syncImageUploads(key, apiKey) { done, total ->
-                    val percent = if (total == 0) 100 else 80 + (done * 20 / total)
-                    setUploadProgress(true, percent, "上传图片 ${done}/${total}")
+                val productBatches = chunkBySize(products, maxUploadBatchBytes)
+                for (batch in productBatches) {
+                    val resp = sendUploadBatch(apiBaseUrl, apiKey, emptyList(), emptyList(), emptyList(), emptyList(), batch)
+                    if (resp == null || !resp.ok) {
+                        val msg = resp?.message ?: "上传商品失败"
+                        appendSyncLog("upload", false, msg)
+                        setUploadProgress(false, 0, "")
+                        return@launch
+                    }
                 }
 
-                val summary = SyncCountSummary(
-                    diaries = diaries.size,
-                    todos = todos.size,
-                    periods = periods.size,
-                    imageUploads = imageUploadCount
-                )
+                val imageUploadCount =
+                    syncImageUploads(key, apiKey) { done, total ->
+                        val percent = if (total == 0) 100 else 80 + (done * 20 / total)
+                        setUploadProgress(true, percent, "上传图片 $done/$total")
+                    }
+
+                val summary =
+                    SyncCountSummary(
+                        diaries = diaries.size,
+                        todos = todos.size,
+                        periods = periods.size,
+                        imageUploads = imageUploadCount,
+                    )
                 _lastUploadSummary.value =
-                    "上传完成：diary ${summary.diaries}，todo ${summary.todos}，period ${summary.periods}，image ${summary.imageUploads}"
+                    "上传完成：diary ${summary.diaries}，todo ${summary.todos}，period ${summary.periods}，product ${products.size}，image ${summary.imageUploads}"
                 appendSyncLog(
                     "upload",
                     true,
-                    _lastUploadSummary.value ?: "上传完成"
+                    _lastUploadSummary.value ?: "上传完成",
                 )
                 dataStore.edit { settings ->
                     settings[PreferencesKeys.LAST_UPLOAD_AT] = now.toString()
@@ -808,11 +890,12 @@ class SettingsViewModel(
             } catch (e: Exception) {
                 e.printStackTrace()
                 val isTimeout = e is java.net.SocketTimeoutException
-                val message = if (isTimeout) {
-                    "上传超时，服务器可能已收到"
-                } else {
-                    "上传失败: ${e.message}"
-                }
+                val message =
+                    if (isTimeout) {
+                        "上传超时，服务器可能已收到"
+                    } else {
+                        "上传失败: ${e.message}"
+                    }
                 withContext(Dispatchers.Main) {
                     Toast.makeText(application, message, Toast.LENGTH_LONG).show()
                 }
@@ -842,8 +925,8 @@ class SettingsViewModel(
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
                             application,
-                            "下载过于频繁，请 ${waitSeconds} 秒后再试",
-                            Toast.LENGTH_LONG
+                            "下载过于频繁，请 $waitSeconds 秒后再试",
+                            Toast.LENGTH_LONG,
                         ).show()
                     }
                     setDownloadProgress(false, 0, "")
@@ -859,7 +942,7 @@ class SettingsViewModel(
                         Toast.makeText(
                             application,
                             "请先配置远程地址、API Key和AES密钥",
-                            Toast.LENGTH_LONG
+                            Toast.LENGTH_LONG,
                         ).show()
                     }
                     appendSyncLog("download", false, "缺少远程地址或API Key或AES密钥")
@@ -869,44 +952,52 @@ class SettingsViewModel(
                 appendSyncLog("download", true, "开始下载")
                 val key = deriveAesKeyFromPassphrase(passphrase)
                 setDownloadProgress(true, 10, "检查差异")
-                val localDiaryMeta = database.diaryDao().getAllEntriesList()
-                    .map { SyncMeta(uuid = it.uuid, updatedAt = it.updatedAt) }
-                val localTodoMeta = database.todoTaskDao().getAllTasksList()
-                    .map { SyncMeta(uuid = it.uuid, updatedAt = it.updatedAt) }
-                val localPeriodMeta = database.periodDao().getAllRecords().first()
-                    .map {
-                        PeriodMeta(
-                            startDate = it.startDate.toString(),
-                            updatedAt = it.updatedAt
-                        )
-                    }
-                val requestBody = SyncDownloadRequest(
-                    diaries = localDiaryMeta,
-                    todos = localTodoMeta,
-                    periods = localPeriodMeta
-                )
-                val json = gson.toJson(requestBody)
-                val request = Request.Builder()
-                    .url("${apiBaseUrl.trimEnd('/')}/sync/download")
-                    .addHeader("X-API-Key", apiKey)
-                    .post(json.toRequestBody("application/json".toMediaType()))
-                    .build()
-
-                val responseBody = httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                application,
-                                "下载失败: ${response.code}",
-                                Toast.LENGTH_LONG
-                            ).show()
+                val localDiaryMeta =
+                    database.diaryDao().getAllEntriesList()
+                        .map { SyncMeta(uuid = it.uuid, updatedAt = it.updatedAt) }
+                val localTodoMeta =
+                    database.todoTaskDao().getAllTasksList()
+                        .map { SyncMeta(uuid = it.uuid, updatedAt = it.updatedAt) }
+                val localPeriodMeta =
+                    database.periodDao().getAllRecords().first()
+                        .map {
+                            PeriodMeta(
+                                startDate = it.startDate.toString(),
+                                updatedAt = it.updatedAt,
+                            )
                         }
-                        appendSyncLog("download", false, "下载失败: ${response.code}")
-                        setDownloadProgress(false, 0, "")
-                        return@launch
+                val localProductMeta = database.productOfferDao().getAllList().map { SyncMeta(it.uuid, it.updatedAt) }
+                val requestBody =
+                    SyncDownloadRequest(
+                        diaries = localDiaryMeta,
+                        todos = localTodoMeta,
+                        periods = localPeriodMeta,
+                        products = localProductMeta,
+                    )
+                val json = gson.toJson(requestBody)
+                val request =
+                    Request.Builder()
+                        .url("${apiBaseUrl.trimEnd('/')}/sync/download")
+                        .addHeader("X-API-Key", apiKey)
+                        .post(json.toRequestBody("application/json".toMediaType()))
+                        .build()
+
+                val responseBody =
+                    httpClient.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    application,
+                                    "下载失败: ${response.code}",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                            appendSyncLog("download", false, "下载失败: ${response.code}")
+                            setDownloadProgress(false, 0, "")
+                            return@launch
+                        }
+                        response.body?.string() ?: ""
                     }
-                    response.body?.string() ?: ""
-                }
 
                 val envelope = gson.fromJson(responseBody, SyncDownloadEnvelope::class.java)
                 if (!envelope.ok) {
@@ -914,7 +1005,7 @@ class SettingsViewModel(
                         Toast.makeText(
                             application,
                             "下载失败: ${envelope.message}",
-                            Toast.LENGTH_LONG
+                            Toast.LENGTH_LONG,
                         ).show()
                     }
                     appendSyncLog("download", false, "下载失败: ${envelope.message}")
@@ -927,29 +1018,31 @@ class SettingsViewModel(
                 val response = envelope.data
                 setDownloadProgress(true, 80, "处理数据")
                 val decryptOk = applyDownloadedData(response, key)
-                val imageDownloadCount = syncImageDownloads(key, apiKey) { done, total ->
-                    val percent = if (total == 0) 100 else 80 + (done * 20 / total)
-                    setDownloadProgress(true, percent, "下载图片 ${done}/${total}")
-                }
-                val summary = SyncCountSummary(
-                    diaries = response.diaries.size,
-                    todos = response.todos.size,
-                    periods = response.periods.size,
-                    imageDownloads = imageDownloadCount
-                )
+                val imageDownloadCount =
+                    syncImageDownloads(key, apiKey) { done, total ->
+                        val percent = if (total == 0) 100 else 80 + (done * 20 / total)
+                        setDownloadProgress(true, percent, "下载图片 $done/$total")
+                    }
+                val summary =
+                    SyncCountSummary(
+                        diaries = response.diaries.size,
+                        todos = response.todos.size,
+                        periods = response.periods.size,
+                        imageDownloads = imageDownloadCount,
+                    )
                 _lastDownloadSummary.value =
                     "下载完成：diary ${summary.diaries}，todo ${summary.todos}，period ${summary.periods}，image ${summary.imageDownloads}"
                 appendSyncLog(
                     "download",
                     true,
-                    _lastDownloadSummary.value ?: "下载完成"
+                    _lastDownloadSummary.value ?: "下载完成",
                 )
                 if (!decryptOk) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
                             application,
                             "下载完成，但有部分数据解密失败，请检查AES密钥是否一致",
-                            Toast.LENGTH_LONG
+                            Toast.LENGTH_LONG,
                         ).show()
                     }
                 }
@@ -974,7 +1067,7 @@ class SettingsViewModel(
 
     private suspend fun applyDownloadedData(
         response: SyncDownloadResponse,
-        key: javax.crypto.spec.SecretKeySpec
+        key: javax.crypto.spec.SecretKeySpec,
     ): Boolean {
         var failedDiaries = 0
         var failedTodos = 0
@@ -986,17 +1079,18 @@ class SettingsViewModel(
                 val payloadJson = String(decryptFromBlob(item.payload, key), Charsets.UTF_8)
                 val payload = gson.fromJson(payloadJson, DiaryPayload::class.java)
                 val existing = localDiaries[item.uuid]
-                val updatedDiary = Diary(
-                    id = existing?.id ?: 0,
-                    uuid = item.uuid,
-                    content = payload.content,
-                    author = item.author,
-                    tags = payload.tags,
-                    timestamp = item.timestamp,
-                    updatedAt = item.updatedAt,
-                    location = payload.location,
-                    imageUris = payload.imageUris
-                )
+                val updatedDiary =
+                    Diary(
+                        id = existing?.id ?: 0,
+                        uuid = item.uuid,
+                        content = payload.content,
+                        author = item.author,
+                        tags = payload.tags,
+                        timestamp = item.timestamp,
+                        updatedAt = item.updatedAt,
+                        location = payload.location,
+                        imageUris = payload.imageUris,
+                    )
                 if (existing == null) {
                     database.diaryDao().insert(updatedDiary)
                 } else if (item.updatedAt > existing.updatedAt) {
@@ -1014,16 +1108,17 @@ class SettingsViewModel(
                 val payloadJson = String(decryptFromBlob(item.payload, key), Charsets.UTF_8)
                 val payload = gson.fromJson(payloadJson, TodoPayload::class.java)
                 val existing = localTodos[item.uuid]
-                val updated = TodoTask(
-                    id = existing?.id ?: 0,
-                    uuid = item.uuid,
-                    name = payload.name,
-                    author = item.author,
-                    isCompleted = item.isCompleted,
-                    createdAt = item.createdAt,
-                    completedAt = item.completedAt,
-                    updatedAt = item.updatedAt
-                )
+                val updated =
+                    TodoTask(
+                        id = existing?.id ?: 0,
+                        uuid = item.uuid,
+                        name = payload.name,
+                        author = item.author,
+                        isCompleted = item.isCompleted,
+                        createdAt = item.createdAt,
+                        completedAt = item.completedAt,
+                        updatedAt = item.updatedAt,
+                    )
                 if (existing == null) {
                     database.todoTaskDao().insert(updated)
                 } else if (item.updatedAt > existing.updatedAt) {
@@ -1043,12 +1138,13 @@ class SettingsViewModel(
                 val startDate = LocalDate.parse(item.startDate)
                 val endDate = LocalDate.parse(item.endDate)
                 val existing = localPeriods[startDate]
-                val updated = PeriodRecord(
-                    startDate = startDate,
-                    endDate = endDate,
-                    notes = payload.notes,
-                    updatedAt = item.updatedAt
-                )
+                val updated =
+                    PeriodRecord(
+                        startDate = startDate,
+                        endDate = endDate,
+                        notes = payload.notes,
+                        updatedAt = item.updatedAt,
+                    )
                 if (existing == null) {
                     database.periodDao().upsert(updated)
                 } else if (item.updatedAt > existing.updatedAt) {
@@ -1060,11 +1156,40 @@ class SettingsViewModel(
             }
         }
 
+        val localProducts = database.productOfferDao().getAllList().associateBy { it.uuid }
+        for (item in response.products) {
+            try {
+                val payload = gson.fromJson(String(decryptFromBlob(item.payload, key), Charsets.UTF_8), ProductPayload::class.java)
+                val existing = localProducts[item.id]
+                val updated =
+                    ProductOffer(
+                        id = existing?.id ?: 0,
+                        uuid = item.id,
+                        name = item.name,
+                        merchant = payload.merchant,
+                        price = payload.price,
+                        discount = payload.discount.takeIf { it > 0 } ?: item.discount.takeIf { it > 0 } ?: 1.0,
+                        quantity = payload.quantity,
+                        quantityUnit = payload.quantityUnit,
+                        notes = payload.notes.orEmpty().ifBlank { item.notes.orEmpty() },
+                        timestamp = item.timestamp,
+                        updatedAt = item.updatedAt,
+                    )
+                if (existing == null) {
+                    database.productOfferDao().insert(updated)
+                } else if (item.updatedAt > existing.updatedAt) {
+                    database.productOfferDao().update(updated)
+                }
+            } catch (e: Exception) {
+                appendSyncLog("download", false, "解密商品失败: ${item.id} (${e.message})")
+            }
+        }
+
         if (failedDiaries + failedTodos + failedPeriods > 0) {
             appendSyncLog(
                 "download",
                 false,
-                "部分解密失败: diary ${failedDiaries}, todo ${failedTodos}, period ${failedPeriods}"
+                "部分解密失败: diary $failedDiaries, todo $failedTodos, period $failedPeriods",
             )
         }
 
@@ -1072,7 +1197,10 @@ class SettingsViewModel(
         return failedDiaries + failedTodos + failedPeriods == 0
     }
 
-    suspend fun fetchImageFromRemote(diaryUuid: String, fileName: String): Boolean {
+    suspend fun fetchImageFromRemote(
+        diaryUuid: String,
+        fileName: String,
+    ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 val apiBaseUrl = remoteApiBaseUrl.first().trim()
@@ -1086,48 +1214,53 @@ class SettingsViewModel(
                 val requestBody =
                     ImageFetchRequest(diaryUuid = diaryUuid, fileName = normalizedFileName)
                 val json = gson.toJson(requestBody)
-                val request = Request.Builder()
-                    .url("${apiBaseUrl.trimEnd('/')}/images/fetch")
-                    .addHeader("X-API-Key", apiKey)
-                    .post(json.toRequestBody("application/json".toMediaType()))
-                    .build()
-                val responseBody = httpClient.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        appendSyncLog(
-                            "image_download",
-                            false,
-                            "下载图片失败: ${response.code} (${diaryTitle}/${normalizedFileName})"
-                        )
-                        return@withContext false
+                val request =
+                    Request.Builder()
+                        .url("${apiBaseUrl.trimEnd('/')}/images/fetch")
+                        .addHeader("X-API-Key", apiKey)
+                        .post(json.toRequestBody("application/json".toMediaType()))
+                        .build()
+                val responseBody =
+                    httpClient.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            appendSyncLog(
+                                "image_download",
+                                false,
+                                "下载图片失败: ${response.code} ($diaryTitle/$normalizedFileName)",
+                            )
+                            return@withContext false
+                        }
+                        response.body?.string() ?: return@withContext false
                     }
-                    response.body?.string() ?: return@withContext false
-                }
                 val response = gson.fromJson(responseBody, ImageFetchResponse::class.java)
                 val bytes = decryptFromBlob(response.blob, key)
-                val mimeType = when (response.fileName.substringAfterLast('.', "").lowercase()) {
-                    "png" -> "image/png"
-                    "webp" -> "image/webp"
-                    else -> "image/jpeg"
-                }
-                val values = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, response.fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, mimeType)
-                    put(
-                        MediaStore.Downloads.RELATIVE_PATH,
-                        "${Environment.DIRECTORY_DOWNLOADS}/syezw_diary_images"
-                    )
-                }
-                val uri = application.contentResolver.insert(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                    values
-                ) ?: return@withContext false
+                val mimeType =
+                    when (response.fileName.substringAfterLast('.', "").lowercase()) {
+                        "png" -> "image/png"
+                        "webp" -> "image/webp"
+                        else -> "image/jpeg"
+                    }
+                val values =
+                    ContentValues().apply {
+                        put(MediaStore.Downloads.DISPLAY_NAME, response.fileName)
+                        put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                        put(
+                            MediaStore.Downloads.RELATIVE_PATH,
+                            "${Environment.DIRECTORY_DOWNLOADS}/syezw_diary_images",
+                        )
+                    }
+                val uri =
+                    application.contentResolver.insert(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        values,
+                    ) ?: return@withContext false
                 application.contentResolver.openOutputStream(uri)?.use { output: OutputStream ->
                     output.write(bytes)
                 }
                 appendSyncLog(
                     "image_download",
                     true,
-                    "下载图片成功: ${diaryTitle}/${response.fileName}"
+                    "下载图片成功: $diaryTitle/${response.fileName}",
                 )
                 true
             } catch (e: Exception) {
@@ -1140,22 +1273,24 @@ class SettingsViewModel(
     private suspend fun syncImageUploads(
         key: javax.crypto.spec.SecretKeySpec,
         apiKey: String,
-        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): Int {
         val apiBaseUrl = remoteApiBaseUrl.first().trim()
         if (apiBaseUrl.isBlank() || apiKey.isBlank()) return 0
 
-        val hashesResponse = runCatching {
-            val request = Request.Builder()
-                .url("${apiBaseUrl.trimEnd('/')}/images/hashes")
-                .addHeader("X-API-Key", apiKey)
-                .post("{}".toRequestBody("application/json".toMediaType()))
-                .build()
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@runCatching ImageHashListResponse(emptyList())
-                gson.fromJson(response.body?.string() ?: "", ImageHashListResponse::class.java)
-            }
-        }.getOrDefault(ImageHashListResponse(emptyList()))
+        val hashesResponse =
+            runCatching {
+                val request =
+                    Request.Builder()
+                        .url("${apiBaseUrl.trimEnd('/')}/images/hashes")
+                        .addHeader("X-API-Key", apiKey)
+                        .post("{}".toRequestBody("application/json".toMediaType()))
+                        .build()
+                httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return@runCatching ImageHashListResponse(emptyList())
+                    gson.fromJson(response.body?.string() ?: "", ImageHashListResponse::class.java)
+                }
+            }.getOrDefault(ImageHashListResponse(emptyList()))
 
         val existing = hashesResponse.hashes.toSet()
         val diaryMap = database.diaryDao().getAllEntriesList().associateBy { it.uuid }
@@ -1167,11 +1302,12 @@ class SettingsViewModel(
                 val normalizedName = normalizeDiaryImageName(imageNameOrPath)
                 val primaryFile = File(imageNameOrPath)
                 val fallbackFile = resolveDiaryImageFile(normalizedName)
-                val file = when {
-                    primaryFile.exists() -> primaryFile
-                    fallbackFile.exists() -> fallbackFile
-                    else -> null
-                } ?: continue
+                val file =
+                    when {
+                        primaryFile.exists() -> primaryFile
+                        fallbackFile.exists() -> fallbackFile
+                        else -> null
+                    } ?: continue
 
                 val bytes = file.readBytes()
                 val hash = sha256Hex(bytes)
@@ -1180,8 +1316,8 @@ class SettingsViewModel(
                         diaryUuid = uuid,
                         fileName = normalizedName,
                         hash = hash,
-                        updatedAt = file.lastModified()
-                    )
+                        updatedAt = file.lastModified(),
+                    ),
                 )
                 if (!existing.contains(hash)) {
                     imagesToUpload.add(
@@ -1190,8 +1326,8 @@ class SettingsViewModel(
                             diaryUuid = uuid,
                             hash = hash,
                             updatedAt = file.lastModified(),
-                            blob = encryptToBlob(bytes, key)
-                        )
+                            blob = encryptToBlob(bytes, key),
+                        ),
                     )
                 }
             }
@@ -1208,11 +1344,12 @@ class SettingsViewModel(
         for (batch in imageBatches) {
             val req = ImageUploadRequest(images = batch)
             val json = gson.toJson(req)
-            val request = Request.Builder()
-                .url("${apiBaseUrl.trimEnd('/')}/images/upload")
-                .addHeader("X-API-Key", apiKey)
-                .post(json.toRequestBody("application/json".toMediaType()))
-                .build()
+            val request =
+                Request.Builder()
+                    .url("${apiBaseUrl.trimEnd('/')}/images/upload")
+                    .addHeader("X-API-Key", apiKey)
+                    .post(json.toRequestBody("application/json".toMediaType()))
+                    .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     val errorMsg = "图片上传失败: HTTP ${response.code}"
@@ -1228,11 +1365,12 @@ class SettingsViewModel(
         if (refsToUpsert.isNotEmpty()) {
             val req = ImageRefsUpsertRequest(refs = refsToUpsert)
             val json = gson.toJson(req)
-            val request = Request.Builder()
-                .url("${apiBaseUrl.trimEnd('/')}/images/refs/upsert")
-                .addHeader("X-API-Key", apiKey)
-                .post(json.toRequestBody("application/json".toMediaType()))
-                .build()
+            val request =
+                Request.Builder()
+                    .url("${apiBaseUrl.trimEnd('/')}/images/refs/upsert")
+                    .addHeader("X-API-Key", apiKey)
+                    .post(json.toRequestBody("application/json".toMediaType()))
+                    .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     val errorMsg = "图片引用更新失败: HTTP ${response.code}"
@@ -1254,19 +1392,21 @@ class SettingsViewModel(
     private suspend fun syncImageDownloads(
         key: javax.crypto.spec.SecretKeySpec,
         apiKey: String,
-        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
     ): Int {
         val apiBaseUrl = remoteApiBaseUrl.first().trim()
         if (apiBaseUrl.isBlank() || apiKey.isBlank()) return 0
-        val request = Request.Builder()
-            .url("${apiBaseUrl.trimEnd('/')}/images/refs")
-            .addHeader("X-API-Key", apiKey)
-            .post("{}".toRequestBody("application/json".toMediaType()))
-            .build()
-        val responseBody = httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return 0
-            response.body?.string() ?: return 0
-        }
+        val request =
+            Request.Builder()
+                .url("${apiBaseUrl.trimEnd('/')}/images/refs")
+                .addHeader("X-API-Key", apiKey)
+                .post("{}".toRequestBody("application/json".toMediaType()))
+                .build()
+        val responseBody =
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return 0
+                response.body?.string() ?: return 0
+            }
         val refs = gson.fromJson(responseBody, ImageRefsResponse::class.java).refs
         var downloadedCount = 0
         val total = refs.size
@@ -1275,12 +1415,13 @@ class SettingsViewModel(
         for (ref in refs) {
             val path = resolveDiaryImagePath(ref.fileName)
             val file = File(path)
-            val needsDownload = if (!file.exists()) {
-                true
-            } else {
-                val localHash = sha256Hex(file.readBytes())
-                localHash != ref.hash
-            }
+            val needsDownload =
+                if (!file.exists()) {
+                    true
+                } else {
+                    val localHash = sha256Hex(file.readBytes())
+                    localHash != ref.hash
+                }
             if (needsDownload) {
                 if (fetchImageFromRemote(ref.diaryUuid, ref.fileName)) {
                     downloadedCount += 1
@@ -1292,11 +1433,19 @@ class SettingsViewModel(
         return downloadedCount
     }
 
-    private fun setUploadProgress(inProgress: Boolean, percent: Int, message: String) {
+    private fun setUploadProgress(
+        inProgress: Boolean,
+        percent: Int,
+        message: String,
+    ) {
         _uploadProgress.value = SyncProgressState(inProgress, percent.coerceIn(0, 100), message)
     }
 
-    private fun setDownloadProgress(inProgress: Boolean, percent: Int, message: String) {
+    private fun setDownloadProgress(
+        inProgress: Boolean,
+        percent: Int,
+        message: String,
+    ) {
         _downloadProgress.value = SyncProgressState(inProgress, percent.coerceIn(0, 100), message)
     }
 
@@ -1310,7 +1459,10 @@ class SettingsViewModel(
             .build()
     }
 
-    private fun <T> chunkBySize(items: List<T>, maxBytes: Int): List<List<T>> {
+    private fun <T> chunkBySize(
+        items: List<T>,
+        maxBytes: Int,
+    ): List<List<T>> {
         if (items.isEmpty()) return emptyList()
         val batches = mutableListOf<MutableList<T>>()
         var current = mutableListOf<T>()
@@ -1337,20 +1489,24 @@ class SettingsViewModel(
         diaries: List<DiarySyncItem>,
         todos: List<TodoSyncItem>,
         periods: List<PeriodSyncItem>,
-        images: List<DiaryImageSyncItem>
+        images: List<DiaryImageSyncItem>,
+        products: List<ProductSyncItem> = emptyList(),
     ): SyncUploadResponse? {
-        val requestBody = SyncUploadRequest(
-            diaries = diaries,
-            todos = todos,
-            periods = periods,
-            images = images
-        )
+        val requestBody =
+            SyncUploadRequest(
+                diaries = diaries,
+                todos = todos,
+                periods = periods,
+                images = images,
+                products = products,
+            )
         val json = gson.toJson(requestBody)
-        val request = Request.Builder()
-            .url("${apiBaseUrl.trimEnd('/')}/sync/upload")
-            .addHeader("X-API-Key", apiKey)
-            .post(json.toRequestBody("application/json".toMediaType()))
-            .build()
+        val request =
+            Request.Builder()
+                .url("${apiBaseUrl.trimEnd('/')}/sync/upload")
+                .addHeader("X-API-Key", apiKey)
+                .post(json.toRequestBody("application/json".toMediaType()))
+                .build()
 
         return httpClient.newCall(request).execute().use { response ->
             val body = response.body?.string() ?: ""
@@ -1360,46 +1516,53 @@ class SettingsViewModel(
                 parsed ?: SyncUploadResponse(
                     ok = false,
                     message = "上传失败: ${response.code}",
-                    counts = SyncCounts(0, 0, 0, 0)
+                    counts = SyncCounts(0, 0, 0, 0),
                 )
             } else {
                 parsed ?: SyncUploadResponse(
                     ok = true,
                     message = "ok",
-                    counts = SyncCounts(diaries.size, todos.size, periods.size, images.size)
+                    counts = SyncCounts(diaries.size, todos.size, periods.size, images.size),
                 )
             }
         }
     }
 
-    private suspend fun appendSyncLog(action: String, success: Boolean, message: String) {
+    private suspend fun appendSyncLog(
+        action: String,
+        success: Boolean,
+        message: String,
+    ) {
         val now = System.currentTimeMillis()
         dataStore.edit { settings ->
             val json = settings[PreferencesKeys.SYNC_LOGS] ?: "[]"
             val type = object : TypeToken<List<SyncLogEntry>>() {}.type
-            val current = runCatching { gson.fromJson<List<SyncLogEntry>>(json, type) }
-                .getOrDefault(emptyList())
+            val current =
+                runCatching { gson.fromJson<List<SyncLogEntry>>(json, type) }
+                    .getOrDefault(emptyList())
             val filtered = current.filter { now - it.timestamp <= maxSyncLogAgeMs }.toMutableList()
             filtered.add(SyncLogEntry(now, action, success, message))
-            val trimmed = if (filtered.size > maxSyncLogs) {
-                filtered.takeLast(maxSyncLogs)
-            } else {
-                filtered
-            }
+            val trimmed =
+                if (filtered.size > maxSyncLogs) {
+                    filtered.takeLast(maxSyncLogs)
+                } else {
+                    filtered
+                }
             settings[PreferencesKeys.SYNC_LOGS] = gson.toJson(trimmed)
         }
     }
 
     private fun fetchRemoteMeta(
         apiBaseUrl: String,
-        apiKey: String
+        apiKey: String,
     ): SyncMetaResponse? {
         return try {
-            val request = Request.Builder()
-                .url("${apiBaseUrl.trimEnd('/')}/sync/meta")
-                .addHeader("X-API-Key", apiKey)
-                .post("{}".toRequestBody("application/json".toMediaType()))
-                .build()
+            val request =
+                Request.Builder()
+                    .url("${apiBaseUrl.trimEnd('/')}/sync/meta")
+                    .addHeader("X-API-Key", apiKey)
+                    .post("{}".toRequestBody("application/json".toMediaType()))
+                    .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return null
                 val body = response.body?.string() ?: return null
@@ -1434,15 +1597,17 @@ class SettingsViewModel(
                         .append(" - ").append(entry.message)
                         .append("\n")
                 }
-                val values = ContentValues().apply {
-                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                    put(MediaStore.Downloads.MIME_TYPE, "text/plain")
-                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                }
-                val uri = application.contentResolver.insert(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                    values
-                )
+                val values =
+                    ContentValues().apply {
+                        put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                        put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                        put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    }
+                val uri =
+                    application.contentResolver.insert(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        values,
+                    )
                 if (uri == null) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(application, "导出失败：无法创建文件", Toast.LENGTH_LONG)
@@ -1470,15 +1635,16 @@ class SettingsViewModelFactory(
     private val application: Application,
     private val database: AppDatabase,
     private val dataStore: DataStore<Preferences>,
-    private val settingsManager: SettingsManager
+    private val settingsManager: SettingsManager,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST") return SettingsViewModel(
+            @Suppress("UNCHECKED_CAST")
+            return SettingsViewModel(
                 application,
                 database,
                 dataStore,
-                settingsManager
+                settingsManager,
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
