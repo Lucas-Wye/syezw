@@ -762,16 +762,26 @@ class SettingsViewModel(
                         .filter { offer -> serverProductMeta[offer.uuid]?.updatedAt?.let { offer.updatedAt > it } ?: true }
                         .map { offer ->
                             ProductSyncItem(
-                                offer.uuid,
-                                offer.name,
-                                offer.timestamp,
-                                offer.updatedAt,
-                                encryptToBlob(
-                                    gson.toJson(
-                                        ProductPayload(offer.merchant, offer.price, offer.quantity, offer.quantityUnit),
-                                    ).toByteArray(),
-                                    key,
-                                ),
+                                id = offer.uuid,
+                                name = offer.name,
+                                timestamp = offer.timestamp,
+                                updatedAt = offer.updatedAt,
+                                discount = offer.discount,
+                                notes = offer.notes,
+                                payload =
+                                    encryptToBlob(
+                                        gson.toJson(
+                                            ProductPayload(
+                                                merchant = offer.merchant,
+                                                price = offer.price,
+                                                discount = offer.discount,
+                                                quantity = offer.quantity,
+                                                quantityUnit = offer.quantityUnit,
+                                                notes = offer.notes,
+                                            ),
+                                        ).toByteArray(),
+                                        key,
+                                    ),
                             )
                         }
 
@@ -1152,7 +1162,19 @@ class SettingsViewModel(
                 val payload = gson.fromJson(String(decryptFromBlob(item.payload, key), Charsets.UTF_8), ProductPayload::class.java)
                 val existing = localProducts[item.id]
                 val updated =
-                    ProductOffer(existing?.id ?: 0, item.id, item.name, payload.merchant, payload.price, payload.quantity, payload.quantityUnit, item.timestamp, item.updatedAt)
+                    ProductOffer(
+                        id = existing?.id ?: 0,
+                        uuid = item.id,
+                        name = item.name,
+                        merchant = payload.merchant,
+                        price = payload.price,
+                        discount = payload.discount.takeIf { it > 0 } ?: item.discount.takeIf { it > 0 } ?: 1.0,
+                        quantity = payload.quantity,
+                        quantityUnit = payload.quantityUnit,
+                        notes = payload.notes.orEmpty().ifBlank { item.notes.orEmpty() },
+                        timestamp = item.timestamp,
+                        updatedAt = item.updatedAt,
+                    )
                 if (existing == null) {
                     database.productOfferDao().insert(updated)
                 } else if (item.updatedAt > existing.updatedAt) {

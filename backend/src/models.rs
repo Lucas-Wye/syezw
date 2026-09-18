@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+fn default_discount() -> f64 {
+    1.0
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EncryptedBlob {
     pub iv: String,
@@ -44,6 +48,10 @@ pub struct ProductSyncItem {
     pub name: String,
     pub timestamp: i64,
     pub updated_at: i64,
+    #[serde(default = "default_discount")]
+    pub discount: f64,
+    #[serde(default)]
+    pub notes: String,
     pub payload: EncryptedBlob,
 }
 

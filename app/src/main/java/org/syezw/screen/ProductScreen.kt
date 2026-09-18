@@ -21,6 +21,8 @@ private fun dateText(value: Long) = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.
 
 private fun number(value: Double) = String.format(Locale.getDefault(), "%.2f", value)
 
+private fun isCandidateText(value: String): Boolean = value.none { it == '(' || it == ')' || it == '（' || it == '）' }
+
 @Composable
 fun ProductScreen(
     viewModel: ProductViewModel,
@@ -28,7 +30,13 @@ fun ProductScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     if (state.selectedName != null) {
-        ProductDetailScreen(viewModel, state.selectedName!!, state.offers.map { it.name }.distinct(), modifier)
+        ProductDetailScreen(
+            viewModel,
+            state.selectedName!!,
+            state.offers.map { it.name }.distinct().filter(::isCandidateText),
+            state.offers.map { it.merchant }.distinct().filter(::isCandidateText),
+            modifier,
+        )
         return
     }
     var adding by remember { mutableStateOf(false) }
@@ -73,7 +81,12 @@ fun ProductScreen(
         }
     }
     if (adding) {
-        OfferEditor(null, state.offers.map { it.name }.distinct(), { adding = false }) {
+        OfferEditor(
+            initial = null,
+            existingNames = state.offers.map { it.name }.distinct().filter(::isCandidateText),
+            existingMerchants = state.offers.map { it.merchant }.distinct().filter(::isCandidateText),
+            onDismiss = { adding = false },
+        ) {
             viewModel.save(it)
             adding = false
         }
@@ -85,6 +98,7 @@ private fun ProductDetailScreen(
     viewModel: ProductViewModel,
     name: String,
     existingNames: List<String>,
+    existingMerchants: List<String>,
     modifier: Modifier,
 ) {
     val offers = viewModel.offersForSelected()
@@ -108,7 +122,10 @@ private fun ProductDetailScreen(
         }
     var deleting by remember { mutableStateOf<ProductOffer?>(null) }
     var editing by remember { mutableStateOf<ProductOffer?>(null) }
-    Scaffold(modifier = modifier) { padding ->
+    var adding by remember { mutableStateOf(false) }
+    Scaffold(modifier = modifier, floatingActionButton = {
+        FloatingActionButton({ adding = true }) { Icon(Icons.Default.Add, "添加商品") }
+    }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             Row(Modifier.fillMaxWidth()) {
                 IconButton(viewModel::closeProduct) { Icon(Icons.Default.ArrowBack, "返回") }
@@ -128,7 +145,10 @@ private fun ProductDetailScreen(
                         Column(Modifier.padding(14.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column {
-                                    Text(offer.merchant, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        "${offer.merchant}" + if (offer.notes.isNotBlank()) "(${offer.notes})" else "",
+                                        style = MaterialTheme.typography.titleMedium,
+                                    )
                                     if (lowest) Text("最低单价", color = Color(0xFF2E7D32))
                                     if (highest) Text("最高单价", color = Color(0xFFC62828))
                                 }
@@ -157,6 +177,12 @@ private fun ProductDetailScreen(
                                     Icon(Icons.Default.Delete, "删除", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
+                            if (offer.discount != 1.0) {
+                                Text(
+                                    text = "折后价 ${number(offer.price * offer.discount)} (${number(offer.discount)})",
+                                    color = Color(0xFFC62828),
+                                )
+                            }
                             Text(
                                 text = "${dateText(offer.timestamp)}",
                                 style = MaterialTheme.typography.bodySmall,
@@ -167,8 +193,20 @@ private fun ProductDetailScreen(
             }
         }
     }
+    if (adding) {
+        OfferEditor(
+            initial = null,
+            existingNames = listOf(name),
+            existingMerchants = existingMerchants,
+            fixedName = name,
+            onDismiss = { adding = false },
+        ) {
+            viewModel.save(it)
+            adding = false
+        }
+    }
     editing?.let {
-        OfferEditor(it, existingNames, { editing = null }) { updated ->
+        OfferEditor(it, existingNames, existingMerchants, onDismiss = { editing = null }) { updated ->
             viewModel.save(updated)
             editing = null
         }
@@ -191,24 +229,44 @@ private fun ProductDetailScreen(
 private fun OfferEditor(
     initial: ProductOffer?,
     existingNames: List<String>,
+    existingMerchants: List<String>,
+    fixedName: String? = null,
     onDismiss: () -> Unit,
     onSave: (ProductOffer) -> Unit,
 ) {
-    var name by remember { mutableStateOf(initial?.name ?: "") }
+    var name by remember { mutableStateOf(fixedName ?: initial?.name ?: "") }
     var merchant by remember { mutableStateOf(initial?.merchant ?: "") }
     var price by remember { mutableStateOf(initial?.price?.toString() ?: "") }
     var quantity by remember { mutableStateOf(initial?.quantity?.toString() ?: "") }
     var unit by remember { mutableStateOf(initial?.quantityUnit ?: "g") }
+    var discount by remember { mutableStateOf(initial?.discount?.toString() ?: "1") }
+    var notes by remember { mutableStateOf(initial?.notes ?: "") }
     var expanded by remember { mutableStateOf(false) }
+    var merchantExpanded by remember { mutableStateOf(false) }
+    var unitExpanded by remember { mutableStateOf(false) }
+    val unitOptions =
+        remember(unit) {
+            listOf("g", "kg", "mg", "ml", "L", "个", "件", "盒", "袋", "瓶", "包", "只", "张", unit)
+                .filter(String::isNotBlank)
+                .distinct()
+        }
     val suggestions = existingNames.filter { it.contains(name, true) }
-    val valid = name.isNotBlank() && merchant.isNotBlank() && (price.toDoubleOrNull() ?: -1.0) >= 0 && (quantity.toDoubleOrNull() ?: 0.0) > 0
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(if (initial == null) "添加商品报价" else "更新商品报价") }, text = {
+    val merchantSuggestions = existingMerchants.filter { it.contains(merchant, true) }
+    val valid =
+        name.isNotBlank() && merchant.isNotBlank() &&
+            (price.toDoubleOrNull() ?: -1.0) >= 0 && (quantity.toDoubleOrNull() ?: 0.0) > 0 &&
+            (discount.toDoubleOrNull() ?: 0.0) > 0
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(if (initial == null) "添加商品" else "更新商品") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             ExposedDropdownMenuBox(expanded = expanded && suggestions.isNotEmpty(), onExpandedChange = { expanded = it }) {
                 OutlinedTextField(name, {
                     name = it
                     expanded = true
-                }, modifier = Modifier.fillMaxWidth().menuAnchor(), label = { Text("商品名称") }, singleLine = true)
+                }, modifier = Modifier.fillMaxWidth().menuAnchor(), label = {
+                    Text(
+                        "商品名称",
+                    )
+                }, singleLine = true, readOnly = fixedName != null)
                 ExposedDropdownMenu(expanded = expanded && suggestions.isNotEmpty(), onDismissRequest = { expanded = false }) {
                     suggestions.forEach {
                             suggestion ->
@@ -219,10 +277,59 @@ private fun OfferEditor(
                     }
                 }
             }
-            OutlinedTextField(merchant, { merchant = it }, label = { Text("商家") }, singleLine = true)
+            ExposedDropdownMenuBox(
+                expanded = merchantExpanded && merchantSuggestions.isNotEmpty(),
+                onExpandedChange = { merchantExpanded = it },
+            ) {
+                OutlinedTextField(merchant, {
+                    merchant = it
+                    merchantExpanded = true
+                }, modifier = Modifier.fillMaxWidth().menuAnchor(), label = { Text("商家") }, singleLine = true)
+                ExposedDropdownMenu(
+                    expanded = merchantExpanded && merchantSuggestions.isNotEmpty(),
+                    onDismissRequest = { merchantExpanded = false },
+                ) {
+                    merchantSuggestions.forEach { suggestion ->
+                        DropdownMenuItem(text = { Text(suggestion) }, onClick = {
+                            merchant = suggestion
+                            merchantExpanded = false
+                        })
+                    }
+                }
+            }
             OutlinedTextField(price, { price = it }, label = { Text("价格") }, singleLine = true)
+            OutlinedTextField(discount, { discount = it }, label = { Text("折扣（默认 1）") }, singleLine = true)
             OutlinedTextField(quantity, { quantity = it }, label = { Text("含量") }, singleLine = true)
-            OutlinedTextField(unit, { unit = it }, label = { Text("含量单位（g/ml/个等）") }, singleLine = true)
+            ExposedDropdownMenuBox(
+                expanded = unitExpanded,
+                onExpandedChange = { unitExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = unit,
+                    onValueChange = {
+                        unit = it
+                        unitExpanded = true
+                    },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    label = { Text("含量单位") },
+                    singleLine = true,
+                )
+                ExposedDropdownMenu(
+                    expanded = unitExpanded,
+                    onDismissRequest = { unitExpanded = false },
+                ) {
+                    unitOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                unit = option
+                                unitExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+            OutlinedTextField(notes, { notes = it }, label = { Text("备注（可选）") }, singleLine = true)
         }
     }, confirmButton = {
         TextButton(enabled = valid, onClick = {
@@ -233,11 +340,13 @@ private fun OfferEditor(
                     name = name.trim(),
                     merchant = merchant.trim(),
                     price = price.toDouble(),
+                    discount = discount.toDouble(),
                     quantity = quantity.toDouble(),
                     quantityUnit =
                         unit.trim().ifBlank {
                             "个"
                         },
+                    notes = notes.trim(),
                 ),
             )
         }) { Text("保存") }

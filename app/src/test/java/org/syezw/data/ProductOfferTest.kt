@@ -13,4 +13,9 @@ class ProductOfferTest {
         val offer = ProductOffer(name = "商品", merchant = "商家", price = 1.0, quantity = 0.0, quantityUnit = "个")
         assertEquals(0.0, offer.unitPrice, 0.00001)
     }
+
+    @Test fun discountIsIncludedInUnitPrice() {
+        val offer = ProductOffer(name = "商品", merchant = "商家", price = 10.0, discount = 0.8, quantity = 2.0, quantityUnit = "个")
+        assertEquals(4.0, offer.unitPrice, 0.00001)
+    }
 }

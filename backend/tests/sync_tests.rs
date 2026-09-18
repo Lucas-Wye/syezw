@@ -143,6 +143,8 @@ async fn upload_then_download_round_trip() {
             name: "牛奶".to_string(),
             timestamp: 7,
             updated_at: 8,
+            discount: 0.8,
+            notes: "早餐".to_string(),
             payload: EncryptedBlob {
                 iv: "iv".to_string(),
                 data: "product".to_string(),
@@ -182,7 +184,7 @@ async fn upload_then_download_round_trip() {
     assert!(data
         .products
         .iter()
-        .any(|p| p.id == product_id && p.name == "牛奶"));
+        .any(|p| p.id == product_id && p.name == "牛奶" && p.discount == 0.8 && p.notes == "早餐"));
     // Images are no longer included in sync_download (fetched via /images/* endpoints)
 }
 

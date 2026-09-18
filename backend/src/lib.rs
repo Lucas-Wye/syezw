@@ -366,7 +366,7 @@ pub async fn sync_download(
         .collect();
 
     let product_rows = match sqlx::query(
-        "SELECT id, name, timestamp, updated_at, payload_iv, payload_data FROM product_sync",
+        "SELECT id, name, timestamp, updated_at, discount, notes, payload_iv, payload_data FROM product_sync",
     )
     .fetch_all(&state.pool)
     .await
@@ -403,6 +403,8 @@ pub async fn sync_download(
             name: row.get("name"),
             timestamp: row.get("timestamp"),
             updated_at: row.get("updated_at"),
+            discount: row.get("discount"),
+            notes: row.get("notes"),
             payload: EncryptedBlob {
                 iv: row.get("payload_iv"),
                 data: row.get("payload_data"),
@@ -817,12 +819,14 @@ async fn upsert_product(
     item: &ProductSyncItem,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(r#"
-        INSERT INTO product_sync (id, name, timestamp, updated_at, payload_iv, payload_data)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO product_sync (id, name, timestamp, updated_at, discount, notes, payload_iv, payload_data)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, timestamp = EXCLUDED.timestamp,
-          updated_at = EXCLUDED.updated_at, payload_iv = EXCLUDED.payload_iv, payload_data = EXCLUDED.payload_data
+          updated_at = EXCLUDED.updated_at, discount = EXCLUDED.discount, notes = EXCLUDED.notes,
+          payload_iv = EXCLUDED.payload_iv, payload_data = EXCLUDED.payload_data
     "#)
     .bind(&item.id).bind(&item.name).bind(item.timestamp).bind(item.updated_at)
+    .bind(item.discount).bind(&item.notes)
     .bind(&item.payload.iv).bind(&item.payload.data).execute(&mut **tx).await?;
     Ok(())
 }

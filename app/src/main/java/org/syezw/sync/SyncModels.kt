@@ -48,8 +48,10 @@ data class PeriodSyncItem(
 data class ProductPayload(
     val merchant: String,
     val price: Double,
+    val discount: Double = 1.0,
     val quantity: Double,
     val quantityUnit: String,
+    val notes: String = "",
 )
 
 data class ProductSyncItem(
@@ -57,6 +59,8 @@ data class ProductSyncItem(
     val name: String,
     val timestamp: Long,
     val updatedAt: Long,
+    val discount: Double = 1.0,
+    val notes: String = "",
     val payload: EncryptedBlob,
 )
 
