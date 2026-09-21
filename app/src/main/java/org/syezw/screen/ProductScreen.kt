@@ -21,6 +21,8 @@ private fun dateText(value: Long) = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.
 
 private fun number(value: Double) = String.format(Locale.getDefault(), "%.2f", value)
 
+private fun number_more_float(value: Double) = String.format(Locale.getDefault(), "%.4f", value)
+
 private fun isCandidateText(value: String): Boolean = value.none { it == '(' || it == ')' || it == '（' || it == '）' }
 
 @Composable
@@ -72,7 +74,7 @@ fun ProductScreen(
                     ) {
                         Column(Modifier.padding(14.dp)) {
                             Text(name, style = MaterialTheme.typography.titleMedium)
-                            Text("${entries.size} 个商家 · 最低单价 ${number(cheapest.unitPrice)}/${cheapest.quantityUnit}（${cheapest.merchant}）")
+                            Text("${entries.size} 个商家 · 最低单价 ${number_more_float(cheapest.unitPrice)}/${cheapest.quantityUnit}（${cheapest.merchant}）")
                             Text(entries.joinToString("、") { it.merchant }, style = MaterialTheme.typography.bodySmall)
                         }
                     }
@@ -152,7 +154,7 @@ private fun ProductDetailScreen(
                                     if (lowest) Text("最低单价", color = Color(0xFF2E7D32))
                                     if (highest) Text("最高单价", color = Color(0xFFC62828))
                                 }
-                                Text("${number(offer.unitPrice)}")
+                                Text("${number_more_float(offer.unitPrice)}")
                             }
                             Row(
                                 modifier = Modifier.fillMaxWidth().height(30.dp),

@@ -14,8 +14,8 @@ android {
         applicationId = "org.syezw"
         minSdk = 34
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.1.4"
+        versionCode = 9
+        versionName = "1.1.4a"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
