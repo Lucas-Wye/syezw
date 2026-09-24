@@ -62,14 +62,14 @@ import java.util.Locale
 fun SettingsScreen(
     settingsViewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
-    onOpenTradeRecord: () -> Unit = {}
+    onOpenTradeRecord: () -> Unit = {},
 ) {
     var showTradeSettings by rememberSaveable { mutableStateOf(false) }
     if (showTradeSettings) {
         TradeSettingsScreen(
             settingsViewModel = settingsViewModel,
             onBack = { showTradeSettings = false },
-            modifier = modifier
+            modifier = modifier,
         )
         return
     }
@@ -107,47 +107,52 @@ fun SettingsScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope() // 获取协程作用域
     val scrollState = rememberScrollState()
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            if (granted) {
-                settingsViewModel.checkUnusedDiaryImages()
-                showUnusedImagesDialog = true
-            }
-        }
-    )
-
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree(),
-        onResult = { uri ->
-            uri?.let { settingsViewModel.importData(it) }
-        }
-    )
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-        onResult = { uri ->
-            uri?.let {
-                context.contentResolver.takePersistableUriPermission(
-                    it,
-                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                coroutineScope.launch {
-                    settingsViewModel.setLoveBgImageUri(it.toString())
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                if (granted) {
+                    settingsViewModel.checkUnusedDiaryImages()
+                    showUnusedImagesDialog = true
                 }
-            }
-        }
-    )
+            },
+        )
+
+    val importLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree(),
+            onResult = { uri ->
+                uri?.let { settingsViewModel.importData(it) }
+            },
+        )
+
+    val imagePickerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent(),
+            onResult = { uri ->
+                uri?.let {
+                    context.contentResolver.takePersistableUriPermission(
+                        it,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                    coroutineScope.launch {
+                        settingsViewModel.setLoveBgImageUri(it.toString())
+                    }
+                }
+            },
+        )
 
     fun hasLocationPermissions(): Boolean {
-        val fine = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        val coarse = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        val fine =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
+        val coarse =
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ) == PackageManager.PERMISSION_GRANTED
         return fine || coarse
     }
 
@@ -160,7 +165,7 @@ fun SettingsScreen(
             } else {
                 @Suppress("DEPRECATION")
                 locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
-                        locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+                    locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
             }
         } catch (e: Exception) {
             false
@@ -171,7 +176,7 @@ fun SettingsScreen(
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(
                 context,
-                Manifest.permission.POST_NOTIFICATIONS
+                Manifest.permission.POST_NOTIFICATIONS,
             ) == PackageManager.PERMISSION_GRANTED
         } else {
             true
@@ -179,19 +184,20 @@ fun SettingsScreen(
     }
 
     fun startGpsService() {
-        val priorityValue = when (gpsPriority) {
-            "high_accuracy" -> Priority.PRIORITY_HIGH_ACCURACY
-            "balanced" -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
-            "low_power" -> Priority.PRIORITY_LOW_POWER
-            "no_power" -> Priority.PRIORITY_PASSIVE
-            else -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
-        }
+        val priorityValue =
+            when (gpsPriority) {
+                "high_accuracy" -> Priority.PRIORITY_HIGH_ACCURACY
+                "balanced" -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+                "low_power" -> Priority.PRIORITY_LOW_POWER
+                "no_power" -> Priority.PRIORITY_PASSIVE
+                else -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            }
         LocationService.start(
             context = context,
             priority = priorityValue,
             intervalMs = gpsIntervalMs,
             fastestIntervalMs = gpsFastestIntervalMs,
-            author = currentAuthor
+            author = currentAuthor,
         )
         Toast.makeText(context, "GPS tracking started", Toast.LENGTH_SHORT).show()
     }
@@ -201,35 +207,36 @@ fun SettingsScreen(
         Toast.makeText(context, "GPS tracking stopped", Toast.LENGTH_SHORT).show()
     }
 
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(),
-        onResult = { permissions ->
-            val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
-            val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-            if (fineGranted || coarseGranted) {
-                startGpsService()
-            } else {
-                Toast.makeText(
-                    context,
-                    "Location permission is required for GPS tracking",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-    )
+    val locationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions(),
+            onResult = { permissions ->
+                val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+                val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+                if (fineGranted || coarseGranted) {
+                    startGpsService()
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Location permission is required for GPS tracking",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            },
+        )
 
     fun requestLocationPermissions() {
         val permissions = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(
                 context,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                Manifest.permission.ACCESS_FINE_LOCATION,
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
         if (ContextCompat.checkSelfPermission(
                 context,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+                Manifest.permission.ACCESS_COARSE_LOCATION,
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -241,20 +248,21 @@ fun SettingsScreen(
         }
     }
 
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            if (granted) {
-                requestLocationPermissions()
-            } else {
-                Toast.makeText(
-                    context,
-                    "Notification permission is required for foreground service",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-    )
+    val notificationPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+            onResult = { granted ->
+                if (granted) {
+                    requestLocationPermissions()
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Notification permission is required for foreground service",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            },
+        )
 
     fun toggleGps(enabled: Boolean) {
         settingsViewModel.setGpsEnabled(enabled)
@@ -263,7 +271,7 @@ fun SettingsScreen(
                 Toast.makeText(
                     context,
                     "Please enable Location in system settings",
-                    Toast.LENGTH_LONG
+                    Toast.LENGTH_LONG,
                 ).show()
                 settingsViewModel.setGpsEnabled(false)
                 return
@@ -289,67 +297,69 @@ fun SettingsScreen(
         floatingActionButton = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FloatingActionButton(
                     onClick = { importLauncher.launch(null) },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                 ) {
                     Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "恢复备份")
                 }
                 FloatingActionButton(
                     onClick = { settingsViewModel.exportData() },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp),
                 ) {
                     Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "导出备份")
                 }
             }
-        }
+        },
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(scrollState),
+            modifier =
+                Modifier
+                    .padding(paddingValues)
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedTextField(
                     value = authorInput,
                     onValueChange = { authorInput = it },
                     label = { Text("芳名") },
                     modifier = Modifier.weight(1f),
-                    singleLine = true
+                    singleLine = true,
                 )
                 OutlinedTextField(
                     value = dateTogetherInput,
                     onValueChange = {
                         dateTogetherInput = it
                         // Basic validation on input change
-                        dateError = try {
-                            // 日期格式应该从 ViewModel 或一个统一的地方获取
-                            // 为了简单起见，这里我们先硬编码
-                            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
-                                isLenient = false
-                            }.parse(it)
-                            null // No error
-                        } catch (e: Exception) {
-                            "无效的日期格式 (YYYY-MM-DD)"
-                        }
+                        dateError =
+                            try {
+                                // 日期格式应该从 ViewModel 或一个统一的地方获取
+                                // 为了简单起见，这里我们先硬编码
+                                SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+                                    isLenient = false
+                                }.parse(it)
+                                null // No error
+                            } catch (e: Exception) {
+                                "无效的日期格式 (YYYY-MM-DD)"
+                            }
                     },
                     label = { Text("在一起的日期") },
                     placeholder = { Text("e.g., 2025-04-06") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    isError = dateError != null
+                    isError = dateError != null,
                 )
             }
 
@@ -358,22 +368,22 @@ fun SettingsScreen(
                     text = dateError!!,
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = "开启首页背景",
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
                     )
                     Switch(
                         checked = loveBgEnabled,
@@ -381,12 +391,12 @@ fun SettingsScreen(
                             coroutineScope.launch {
                                 settingsViewModel.setLoveBgEnabled(isEnabled)
                             }
-                        }
+                        },
                     )
                 }
                 OutlinedButton(
                     onClick = { imagePickerLauncher.launch("image/*") },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text(if (loveBgImageUri != null) "更改背景图片" else "选择背景图片")
                 }
@@ -394,16 +404,16 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = "周期记录功能",
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
                     )
                     Switch(
                         checked = isPeriodTrackingEnabled,
@@ -413,61 +423,63 @@ fun SettingsScreen(
                             coroutineScope.launch {
                                 settingsViewModel.setPeriodTrackingEnabled(isEnabled)
                             }
-                        }
+                        },
                     )
                 }
                 // GPS
                 Row(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
                         text = "GPS记录功能",
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
                     )
                     Switch(
                         checked = gpsEnabled,
                         onCheckedChange = { enabled ->
                             toggleGps(enabled)
-                        }
+                        },
                     )
                 }
             }
             if (gpsEnabled) {
                 var priorityExpanded by remember { mutableStateOf(false) }
-                val priorityLabel = when (gpsPriority) {
-                    "high_accuracy" -> "High Accuracy"
-                    "balanced" -> "Balanced Power"
-                    "low_power" -> "Low Power"
-                    "no_power" -> "No Power (Passive)"
-                    else -> "Balanced Power"
-                }
+                val priorityLabel =
+                    when (gpsPriority) {
+                        "high_accuracy" -> "High Accuracy"
+                        "balanced" -> "Balanced Power"
+                        "low_power" -> "Low Power"
+                        "no_power" -> "No Power (Passive)"
+                        else -> "Balanced Power"
+                    }
 
                 var intervalExpanded by remember { mutableStateOf(false) }
-                val intervalLabel = when (gpsIntervalMs) {
-                    15_000L -> "15 seconds"
-                    30_000L -> "30 seconds"
-                    300_000L -> "5 minutes"
-                    600_000L -> "10 minutes"
-                    900_000L -> "15 minutes"
-                    1_800_000L -> "30 minutes"
-                    3_600_000L -> "60 minutes"
-                    else -> "${gpsIntervalMs / 1000} seconds"
-                }
+                val intervalLabel =
+                    when (gpsIntervalMs) {
+                        15_000L -> "15 seconds"
+                        30_000L -> "30 seconds"
+                        300_000L -> "5 minutes"
+                        600_000L -> "10 minutes"
+                        900_000L -> "15 minutes"
+                        1_800_000L -> "30 minutes"
+                        3_600_000L -> "60 minutes"
+                        else -> "${gpsIntervalMs / 1000} seconds"
+                    }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
                             text = "Priority",
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
                         )
                         Box {
                             TextButton(onClick = { priorityExpanded = true }) {
@@ -475,35 +487,35 @@ fun SettingsScreen(
                             }
                             DropdownMenu(
                                 expanded = priorityExpanded,
-                                onDismissRequest = { priorityExpanded = false }
+                                onDismissRequest = { priorityExpanded = false },
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("High Accuracy") },
                                     onClick = {
                                         settingsViewModel.setGpsPriority("high_accuracy")
                                         priorityExpanded = false
-                                    }
+                                    },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Balanced Power") },
                                     onClick = {
                                         settingsViewModel.setGpsPriority("balanced")
                                         priorityExpanded = false
-                                    }
+                                    },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Low Power") },
                                     onClick = {
                                         settingsViewModel.setGpsPriority("low_power")
                                         priorityExpanded = false
-                                    }
+                                    },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("No Power (Passive)") },
                                     onClick = {
                                         settingsViewModel.setGpsPriority("no_power")
                                         priorityExpanded = false
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -511,11 +523,11 @@ fun SettingsScreen(
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
                             text = "Interval",
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
                         )
                         Box {
                             TextButton(onClick = { intervalExpanded = true }) {
@@ -523,7 +535,7 @@ fun SettingsScreen(
                             }
                             DropdownMenu(
                                 expanded = intervalExpanded,
-                                onDismissRequest = { intervalExpanded = false }
+                                onDismissRequest = { intervalExpanded = false },
                             ) {
                                 listOf(
                                     15_000L to "15 seconds",
@@ -540,7 +552,7 @@ fun SettingsScreen(
                                             settingsViewModel.setGpsIntervalMs(ms)
                                             settingsViewModel.setGpsFastestIntervalMs(ms / 2)
                                             intervalExpanded = false
-                                        }
+                                        },
                                     )
                                 }
                             }
@@ -552,7 +564,7 @@ fun SettingsScreen(
             Text(
                 text = "Remote Sync",
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             OutlinedTextField(
@@ -560,12 +572,12 @@ fun SettingsScreen(
                 onValueChange = { apiBaseUrlInput = it },
                 label = { Text("URL") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedTextField(
                     value = apiKeyInput,
@@ -573,7 +585,7 @@ fun SettingsScreen(
                     label = { Text("Key") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation()
+                    visualTransformation = PasswordVisualTransformation(),
                 )
                 OutlinedTextField(
                     value = aesPassphraseInput,
@@ -581,7 +593,7 @@ fun SettingsScreen(
                     label = { Text("Passphrase") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation()
+                    visualTransformation = PasswordVisualTransformation(),
                 )
             }
 
@@ -600,7 +612,7 @@ fun SettingsScreen(
                     settingsViewModel.updateAesPassphrase(aesPassphraseInput)
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = dateError == null // Disable button if format is invalid
+                enabled = dateError == null, // Disable button if format is invalid
             ) {
                 Text("保存设置")
             }
@@ -608,17 +620,17 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Button(
                     onClick = { settingsViewModel.syncUpload() },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text("上传")
                 }
                 Button(
                     onClick = { settingsViewModel.syncDownload() },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text("下载")
                 }
@@ -627,55 +639,55 @@ fun SettingsScreen(
             if (uploadProgress.inProgress || uploadProgress.percent > 0) {
                 LinearProgressIndicator(
                     progress = { uploadProgress.percent / 100f },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
                     text = "上传进度: ${uploadProgress.percent}% ${uploadProgress.message}",
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (!lastUploadSummary.isNullOrBlank()) {
                 Text(
                     text = lastUploadSummary.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 
             if (downloadProgress.inProgress || downloadProgress.percent > 0) {
                 LinearProgressIndicator(
                     progress = { downloadProgress.percent / 100f },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
                     text = "下载进度: ${downloadProgress.percent}% ${downloadProgress.message}",
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (!lastDownloadSummary.isNullOrBlank()) {
                 Text(
                     text = lastDownloadSummary.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedButton(
                     onClick = { settingsViewModel.exportGpsData() },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text("导出GPS")
                 }
                 OutlinedButton(
                     onClick = { settingsViewModel.exportSyncLogs() },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text("导出日志")
                 }
@@ -687,7 +699,7 @@ fun SettingsScreen(
                     val permission = Manifest.permission.READ_MEDIA_IMAGES
                     val hasPermission =
                         ContextCompat.checkSelfPermission(context, permission) ==
-                                PackageManager.PERMISSION_GRANTED
+                            PackageManager.PERMISSION_GRANTED
                     if (hasPermission) {
                         settingsViewModel.checkUnusedDiaryImages()
                         showUnusedImagesDialog = true
@@ -695,7 +707,7 @@ fun SettingsScreen(
                         permissionLauncher.launch(permission)
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(if (unusedImageState.isChecking) "检查中..." else "检查本地未使用图片")
             }
@@ -703,17 +715,17 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedButton(
                     onClick = { showTradeSettings = true },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text("trade设置")
                 }
                 OutlinedButton(
                     onClick = onOpenTradeRecord,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Text("trade记录")
                 }
@@ -728,10 +740,11 @@ fun SettingsScreen(
             title = { Text("未使用图片检查结果") },
             text = {
                 Column(
-                    modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .padding(vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier =
+                        Modifier
+                            .verticalScroll(rememberScrollState())
+                            .padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (unusedImageState.isChecking) {
                         Text("检查中，请稍候...")
@@ -741,19 +754,19 @@ fun SettingsScreen(
                                 text = "最近检查: ${
                                     SimpleDateFormat(
                                         "yyyy-MM-dd HH:mm:ss",
-                                        Locale.getDefault()
+                                        Locale.getDefault(),
                                     ).format(java.util.Date(ts))
                                 }",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
                             )
                         }
                         Text(
                             text = "扫描目录图片数: ${unusedImageState.scannedPaths.size}",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                         Text(
                             text = "日记引用图片数: ${unusedImageState.usedPaths.size}",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                         if (unusedImageState.unusedPaths.isEmpty()) {
                             Text("未发现未使用图片")
@@ -782,7 +795,7 @@ fun SettingsScreen(
                 TextButton(onClick = { showUnusedImagesDialog = false }) {
                     Text("关闭")
                 }
-            }
+            },
         )
     }
 }

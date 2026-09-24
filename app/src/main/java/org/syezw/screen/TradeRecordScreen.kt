@@ -53,10 +53,10 @@ import kotlin.math.absoluteValue
 fun TradeRecordScreen(
     settingsViewModel: SettingsViewModel,
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val tradeState by settingsViewModel.tradeRecordState.collectAsState(
-        initial = TradeRecordState()
+        initial = TradeRecordState(),
     )
     var currentTab by remember { mutableStateOf(TradeTab.HISTORY) }
 
@@ -65,10 +65,11 @@ fun TradeRecordScreen(
         containerColor = Color.White,
         topBar = {
             CenterAlignedTopAppBar(
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.White,
-                    scrolledContainerColor = Color.White
-                ),
+                colors =
+                    TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.White,
+                        scrolledContainerColor = Color.White,
+                    ),
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(tradeState.title, fontSize = 20.sp)
@@ -76,7 +77,7 @@ fun TradeRecordScreen(
                             text = tradeState.accountMasked,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
-                            color = colorResource(id = org.syezw.R.color.trade_text_tertiary)
+                            color = colorResource(id = org.syezw.R.color.trade_text_tertiary),
                         )
                     }
                 },
@@ -85,144 +86,157 @@ fun TradeRecordScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = "返回",
-                            tint = colorResource(id = org.syezw.R.color.trade_text_primary)
+                            tint = colorResource(id = org.syezw.R.color.trade_text_primary),
                         )
                     }
-                }
+                },
             )
-        }
+        },
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize()
-                .background(colorResource(id = org.syezw.R.color.trade_background))
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(0.dp)
+            modifier =
+                Modifier
+                    .padding(paddingValues)
+                    .fillMaxSize()
+                    .background(colorResource(id = org.syezw.R.color.trade_background))
+                    .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             Surface(
                 color = Color.White,
                 tonalElevation = 0.dp,
-                shadowElevation = 0.dp
+                shadowElevation = 0.dp,
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 0.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 0.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     // 股票名字
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        val changePercent = tradeState.stockChangePercent
-                            .replace("%", "").replace(",", "").trim().toDoubleOrNull() ?: 0.0
-                        val priceColor = when {
-                            changePercent < 0 -> colorResource(id = org.syezw.R.color.trade_green)
-                            changePercent > 0 -> colorResource(id = org.syezw.R.color.trade_red)
-                            else -> colorResource(id = org.syezw.R.color.trade_text_primary)
-                        }
+                        val changePercent =
+                            tradeState.stockChangePercent
+                                .replace("%", "").replace(",", "").trim().toDoubleOrNull() ?: 0.0
+                        val priceColor =
+                            when {
+                                changePercent < 0 -> colorResource(id = org.syezw.R.color.trade_green)
+                                changePercent > 0 -> colorResource(id = org.syezw.R.color.trade_red)
+                                else -> colorResource(id = org.syezw.R.color.trade_text_primary)
+                            }
                         Text(
                             text = tradeState.stockName,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
-                            color = colorResource(id = org.syezw.R.color.trade_text_primary)
+                            color = colorResource(id = org.syezw.R.color.trade_text_primary),
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = tradeState.stockCode,
                             fontSize = 16.sp,
-                            color = colorResource(id = org.syezw.R.color.trade_text_secondary)
+                            color = colorResource(id = org.syezw.R.color.trade_text_secondary),
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = tradeState.stockPrice,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
-                            color = priceColor
+                            color = priceColor,
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = formatSignedPercent(tradeState.stockChangePercent),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
-                            color = priceColor
+                            color = priceColor,
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = "进入",
-                            tint = colorResource(id = org.syezw.R.color.trade_text_tertiary)
+                            tint = colorResource(id = org.syezw.R.color.trade_text_tertiary),
                         )
                     }
                     HorizontalDivider(
                         thickness = 1.dp,
-                        color = colorResource(id = org.syezw.R.color.trade_divider)
+                        color = colorResource(id = org.syezw.R.color.trade_divider),
                     )
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 20.dp, bottom = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 20.dp, bottom = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             text = "参考盈亏",
                             fontSize = 16.sp,
                             // fontWeight = FontWeight.Bold,
                             fontWeight = FontWeight.Medium,
-                            color = colorResource(id = org.syezw.R.color.trade_text_primary)
+                            color = colorResource(id = org.syezw.R.color.trade_text_primary),
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "数据说明",
                                 fontSize = 13.sp,
-                                color = colorResource(id = org.syezw.R.color.trade_text_tertiary)
+                                color = colorResource(id = org.syezw.R.color.trade_text_tertiary),
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 painter = painterResource(id = org.syezw.R.drawable.ic_help_outline),
                                 contentDescription = "数据说明",
                                 tint = colorResource(id = org.syezw.R.color.trade_text_tertiary),
-                                modifier = Modifier
-                                    .width(16.dp)
-                                    .height(16.dp)
+                                modifier =
+                                    Modifier
+                                        .width(16.dp)
+                                        .height(16.dp),
                             )
                         }
                     }
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         val profitValue = formatSignedAmount(tradeState.referenceProfit)
                         val profitColor =
-                            if (profitValue.isNegative) colorResource(id = org.syezw.R.color.trade_green)
-                            else colorResource(id = org.syezw.R.color.trade_red)
-                        val profitPercent = tradeState.referenceProfitPercent
-                            .replace("%", "").replace(",", "").trim().toDoubleOrNull() ?: 0.0
-                        val profitPercentColor = when {
-                            profitPercent < 0 -> colorResource(id = org.syezw.R.color.trade_green)
-                            profitPercent > 0 -> colorResource(id = org.syezw.R.color.trade_red)
-                            else -> colorResource(id = org.syezw.R.color.trade_text_primary)
-                        }
+                            if (profitValue.isNegative) {
+                                colorResource(id = org.syezw.R.color.trade_green)
+                            } else {
+                                colorResource(id = org.syezw.R.color.trade_red)
+                            }
+                        val profitPercent =
+                            tradeState.referenceProfitPercent
+                                .replace("%", "").replace(",", "").trim().toDoubleOrNull() ?: 0.0
+                        val profitPercentColor =
+                            when {
+                                profitPercent < 0 -> colorResource(id = org.syezw.R.color.trade_green)
+                                profitPercent > 0 -> colorResource(id = org.syezw.R.color.trade_red)
+                                else -> colorResource(id = org.syezw.R.color.trade_text_primary)
+                            }
                         Text(
                             text = profitValue.text,
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Medium,
                             // fontWeight = FontWeight.Bold,
-                            color = profitColor
+                            color = profitColor,
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = formatSignedPercent(tradeState.referenceProfitPercent),
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Medium,
-                            color = profitPercentColor
+                            color = profitPercentColor,
                         )
                     }
                 }
@@ -230,7 +244,7 @@ fun TradeRecordScreen(
             Spacer(modifier = Modifier.height(10.dp))
             TradeTabRow(
                 currentTab = currentTab,
-                onTabChange = { currentTab = it }
+                onTabChange = { currentTab = it },
             )
             if (currentTab == TradeTab.HISTORY) {
                 // 持仓天数、买入次数、卖出次数
@@ -238,37 +252,38 @@ fun TradeRecordScreen(
                     SummaryRow(
                         holdDays = tradeState.holdDays,
                         buyTimes = tradeState.buyTimes,
-                        sellTimes = tradeState.sellTimes
+                        sellTimes = tradeState.sellTimes,
                     )
                 }
                 // 交易记录
                 Surface(color = Color.White, tonalElevation = 0.dp, shadowElevation = 0.dp) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(40.dp)
-                            .padding(start = 10.dp, end = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .padding(start = 10.dp, end = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             text = "交易记录",
                             fontSize = 16.sp,
                             // fontWeight = FontWeight.Bold,
                             fontWeight = FontWeight.Medium,
-                            color = colorResource(id = org.syezw.R.color.trade_text_primary)
+                            color = colorResource(id = org.syezw.R.color.trade_text_primary),
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "个股清仓记录",
                                 fontSize = 14.sp,
-                                color = colorResource(id = org.syezw.R.color.trade_text_tertiary)
+                                color = colorResource(id = org.syezw.R.color.trade_text_tertiary),
                             )
                             Spacer(modifier = Modifier.width(2.dp))
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                 contentDescription = "进入",
-                                tint = colorResource(id = org.syezw.R.color.trade_text_tertiary)
+                                tint = colorResource(id = org.syezw.R.color.trade_text_tertiary),
                             )
                         }
                     }
@@ -276,13 +291,13 @@ fun TradeRecordScreen(
                 TradeRecordList(
                     records = tradeState.historyRecords,
                     showFee = true,
-                    showDateLabel = true
+                    showDateLabel = true,
                 )
             } else {
                 TradeRecordList(
                     records = tradeState.dayRecords,
                     showFee = false,
-                    showDateLabel = false
+                    showDateLabel = false,
                 )
             }
         }
@@ -294,68 +309,72 @@ private enum class TradeTab { HISTORY, DAY }
 @Composable
 private fun TradeTabRow(
     currentTab: TradeTab,
-    onTabChange: (TradeTab) -> Unit
+    onTabChange: (TradeTab) -> Unit,
 ) {
     Surface(color = Color.White, tonalElevation = 0.dp, shadowElevation = 0.dp) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(36.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(36.dp),
                 horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
                     modifier = Modifier.weight(1f),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     TextButtonLabel(
                         text = "历史交易",
                         selected = currentTab == TradeTab.HISTORY,
-                        onClick = { onTabChange(TradeTab.HISTORY) }
+                        onClick = { onTabChange(TradeTab.HISTORY) },
                     )
                 }
                 Box(
                     modifier = Modifier.weight(1f),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     TextButtonLabel(
                         text = "当日交易",
                         selected = currentTab == TradeTab.DAY,
-                        onClick = { onTabChange(TradeTab.DAY) }
+                        onClick = { onTabChange(TradeTab.DAY) },
                     )
                 }
             }
             // 指示线容器
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp),
-                horizontalArrangement = Arrangement.Center
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(2.dp),
+                horizontalArrangement = Arrangement.Center,
             ) {
                 Box(
                     modifier = Modifier.weight(1f),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     if (currentTab == TradeTab.HISTORY) {
                         Box(
-                            modifier = Modifier
-                                .width(18.dp)
-                                .height(2.dp)
-                                .background(colorResource(id = org.syezw.R.color.trade_red))
+                            modifier =
+                                Modifier
+                                    .width(18.dp)
+                                    .height(2.dp)
+                                    .background(colorResource(id = org.syezw.R.color.trade_red)),
                         )
                     }
                 }
                 Box(
                     modifier = Modifier.weight(1f),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     if (currentTab == TradeTab.DAY) {
                         Box(
-                            modifier = Modifier
-                                .width(18.dp)
-                                .height(2.dp)
-                                .background(colorResource(id = org.syezw.R.color.trade_red))
+                            modifier =
+                                Modifier
+                                    .width(18.dp)
+                                    .height(2.dp)
+                                    .background(colorResource(id = org.syezw.R.color.trade_red)),
                         )
                     }
                 }
@@ -369,29 +388,34 @@ private fun TextButtonLabel(
     text: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     TextButton(
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
     ) {
         Text(
             text = text,
             fontSize = 16.sp,
-            color = if (selected) colorResource(id = org.syezw.R.color.trade_red) else MaterialTheme.colorScheme.onSurfaceVariant
+            color = if (selected) colorResource(id = org.syezw.R.color.trade_red) else MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
 @Composable
-private fun SummaryRow(holdDays: String, buyTimes: String, sellTimes: String) {
+private fun SummaryRow(
+    holdDays: String,
+    buyTimes: String,
+    sellTimes: String,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .padding(start = 12.dp, end = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .padding(start = 12.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         SummaryItem(label = "持仓天数", value = holdDays)
         SummaryItem(label = "买入次数", value = buyTimes)
@@ -400,13 +424,16 @@ private fun SummaryRow(holdDays: String, buyTimes: String, sellTimes: String) {
 }
 
 @Composable
-private fun SummaryItem(label: String, value: String) {
+private fun SummaryItem(
+    label: String,
+    value: String,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             label,
             fontSize = 14.sp,
             color = colorResource(id = org.syezw.R.color.trade_text_secondary),
-            maxLines = 1
+            maxLines = 1,
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
@@ -414,7 +441,7 @@ private fun SummaryItem(label: String, value: String) {
             fontSize = 14.sp,
             color = colorResource(id = org.syezw.R.color.trade_text_primary),
             fontWeight = FontWeight.Medium,
-            maxLines = 1
+            maxLines = 1,
         )
     }
 }
@@ -423,31 +450,35 @@ private fun SummaryItem(label: String, value: String) {
 private fun TradeRecordList(
     records: List<TradeRecordItem>,
     showFee: Boolean,
-    showDateLabel: Boolean
+    showDateLabel: Boolean,
 ) {
     if (records.isEmpty()) {
         return
     }
 
-    val sortedRecords = records.sortedWith(compareByDescending<TradeRecordItem> {
-        val year = it.year.toIntOrNull() ?: 0
-        val month = it.month.toIntOrNull() ?: 0
-        val day = it.day.toIntOrNull() ?: 0
-        year * 10000 + month * 100 + day
-    })
+    val sortedRecords =
+        records.sortedWith(
+            compareByDescending<TradeRecordItem> {
+                val year = it.year.toIntOrNull() ?: 0
+                val month = it.month.toIntOrNull() ?: 0
+                val day = it.day.toIntOrNull() ?: 0
+                year * 10000 + month * 100 + day
+            },
+        )
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(1.dp)
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         sortedRecords.forEach { record ->
             Surface(color = Color.White, tonalElevation = 0.dp, shadowElevation = 0.dp) {
                 Column(modifier = Modifier.padding(vertical = 12.dp)) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         val isBuy =
                             record.type == TradeOrderType.BUY || record.type == TradeOrderType.OPEN
@@ -455,21 +486,23 @@ private fun TradeRecordList(
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Text(
-                                    text = when (record.type) {
-                                        TradeOrderType.BUY -> "买入"
-                                        TradeOrderType.SELL -> "卖出"
-                                        TradeOrderType.OPEN -> "建仓"
-                                    },
+                                    text =
+                                        when (record.type) {
+                                            TradeOrderType.BUY -> "买入"
+                                            TradeOrderType.SELL -> "卖出"
+                                            TradeOrderType.OPEN -> "建仓"
+                                        },
                                     fontSize = 16.sp,
-                                    color = if (isBuy) {
-                                        colorResource(id = org.syezw.R.color.trade_red)
-                                    } else {
-                                        colorResource(id = org.syezw.R.color.trade_green)
-                                    },
-                                    maxLines = 1
+                                    color =
+                                        if (isBuy) {
+                                            colorResource(id = org.syezw.R.color.trade_red)
+                                        } else {
+                                            colorResource(id = org.syezw.R.color.trade_green)
+                                        },
+                                    maxLines = 1,
                                 )
                                 Text(
                                     text = formatDate(record.year, record.month, record.day),
@@ -477,7 +510,7 @@ private fun TradeRecordList(
                                     fontWeight = FontWeight.Medium,
                                     color = colorResource(id = org.syezw.R.color.trade_text_tertiary),
                                     textAlign = TextAlign.End,
-                                    maxLines = 1
+                                    maxLines = 1,
                                 )
                             }
                         }
@@ -487,10 +520,11 @@ private fun TradeRecordList(
                     Spacer(modifier = Modifier.height(4.dp))
                     val amount = computeAmount(record.price, record.quantity, if (showFee) 2 else 3)
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
                             MetricItem(label = "价格", value = record.price)
@@ -502,10 +536,11 @@ private fun TradeRecordList(
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
                             MetricItem(label = "数量", value = record.quantity)
@@ -524,24 +559,27 @@ private fun TradeRecordList(
 }
 
 @Composable
-private fun MetricItem(label: String, value: String) {
+private fun MetricItem(
+    label: String,
+    value: String,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
             label,
             fontSize = 16.sp,
             color = colorResource(id = org.syezw.R.color.trade_text_secondary),
-            maxLines = 1
+            maxLines = 1,
         )
         Text(
             value,
             fontSize = 16.sp,
             color = colorResource(id = org.syezw.R.color.trade_text_primary),
             maxLines = 1,
-            textAlign = TextAlign.End
+            textAlign = TextAlign.End,
         )
     }
 }
@@ -582,12 +620,20 @@ private fun formatSignedPercent(raw: String): String {
     }
 }
 
-private fun formatDate(year: String, month: String, day: String): String {
+private fun formatDate(
+    year: String,
+    month: String,
+    day: String,
+): String {
     if (year.isBlank() && month.isBlank() && day.isBlank()) return ""
     return "${year.trim()}-${month.trim()}-${day.trim()}"
 }
 
-private fun computeAmount(priceRaw: String, qtyRaw: String, decimals: Int): String {
+private fun computeAmount(
+    priceRaw: String,
+    qtyRaw: String,
+    decimals: Int,
+): String {
     val price = priceRaw.replace(",", "").trim().toDoubleOrNull()
     val qty = qtyRaw.replace(",", "").trim().toDoubleOrNull()
     if (price == null || qty == null) return ""

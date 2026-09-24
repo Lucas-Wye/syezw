@@ -2,14 +2,14 @@ package org.syezw.sync
 
 data class EncryptedBlob(
     val iv: String,
-    val data: String
+    val data: String,
 )
 
 data class DiaryPayload(
     val content: String,
     val tags: List<String>,
     val location: String?,
-    val imageUris: List<String>
+    val imageUris: List<String>,
 )
 
 data class DiarySyncItem(
@@ -17,11 +17,11 @@ data class DiarySyncItem(
     val author: String,
     val timestamp: Long,
     val updatedAt: Long,
-    val payload: EncryptedBlob
+    val payload: EncryptedBlob,
 )
 
 data class TodoPayload(
-    val name: String
+    val name: String,
 )
 
 data class TodoSyncItem(
@@ -31,18 +31,37 @@ data class TodoSyncItem(
     val createdAt: Long,
     val completedAt: Long?,
     val updatedAt: Long,
-    val payload: EncryptedBlob
+    val payload: EncryptedBlob,
 )
 
 data class PeriodPayload(
-    val notes: String?
+    val notes: String?,
 )
 
 data class PeriodSyncItem(
     val startDate: String,
     val endDate: String,
     val updatedAt: Long,
-    val payload: EncryptedBlob
+    val payload: EncryptedBlob,
+)
+
+data class ProductPayload(
+    val merchant: String,
+    val price: Double,
+    val discount: Double = 1.0,
+    val quantity: Double,
+    val quantityUnit: String,
+    val notes: String = "",
+)
+
+data class ProductSyncItem(
+    val id: String,
+    val name: String,
+    val timestamp: Long,
+    val updatedAt: Long,
+    val discount: Double = 1.0,
+    val notes: String = "",
+    val payload: EncryptedBlob,
 )
 
 data class DiaryImageSyncItem(
@@ -50,55 +69,58 @@ data class DiaryImageSyncItem(
     val diaryUuid: String,
     val hash: String,
     val updatedAt: Long,
-    val blob: EncryptedBlob
+    val blob: EncryptedBlob,
 )
 
 data class DiaryImageRefItem(
     val diaryUuid: String,
     val fileName: String,
     val hash: String,
-    val updatedAt: Long
+    val updatedAt: Long,
 )
 
 data class SyncUploadRequest(
     val diaries: List<DiarySyncItem>,
     val todos: List<TodoSyncItem>,
     val periods: List<PeriodSyncItem>,
-    val images: List<DiaryImageSyncItem>
+    val images: List<DiaryImageSyncItem>,
+    val products: List<ProductSyncItem> = emptyList(),
 )
 
 data class SyncCounts(
     val diaries: Int,
     val todos: Int,
     val periods: Int,
-    val images: Int
+    val images: Int,
+    val products: Int = 0,
 )
 
 data class SyncUploadResponse(
     val ok: Boolean,
     val message: String,
-    val counts: SyncCounts
+    val counts: SyncCounts,
 )
 
 data class SyncDownloadRequest(
     val diaries: List<SyncMeta> = emptyList(),
     val todos: List<SyncMeta> = emptyList(),
-    val periods: List<PeriodMeta> = emptyList()
+    val periods: List<PeriodMeta> = emptyList(),
+    val products: List<SyncMeta> = emptyList(),
 )
 
 data class SyncMeta(
     val uuid: String,
-    val updatedAt: Long
+    val updatedAt: Long,
 )
 
 data class PeriodMeta(
     val startDate: String,
-    val updatedAt: Long
+    val updatedAt: Long,
 )
 
 data class ImageFetchRequest(
     val diaryUuid: String,
-    val fileName: String
+    val fileName: String,
 )
 
 data class ImageFetchResponse(
@@ -106,42 +128,43 @@ data class ImageFetchResponse(
     val diaryUuid: String,
     val hash: String,
     val updatedAt: Long,
-    val blob: EncryptedBlob
+    val blob: EncryptedBlob,
 )
 
 data class ImageHashListResponse(
-    val hashes: List<String>
+    val hashes: List<String>,
 )
 
 data class ImageRefsResponse(
-    val refs: List<DiaryImageRefItem>
+    val refs: List<DiaryImageRefItem>,
 )
 
 data class ImageUploadRequest(
-    val images: List<DiaryImageSyncItem>
+    val images: List<DiaryImageSyncItem>,
 )
 
 data class ImageRefsUpsertRequest(
-    val refs: List<DiaryImageRefItem>
+    val refs: List<DiaryImageRefItem>,
 )
 
 data class SyncDownloadEnvelope(
     val ok: Boolean,
     val message: String,
     val counts: SyncCounts,
-    val data: SyncDownloadResponse
+    val data: SyncDownloadResponse,
 )
 
 data class SyncDownloadResponse(
     val diaries: List<DiarySyncItem>,
     val todos: List<TodoSyncItem>,
     val periods: List<PeriodSyncItem>,
-    val images: List<DiaryImageSyncItem>
+    val images: List<DiaryImageSyncItem>,
+    val products: List<ProductSyncItem> = emptyList(),
 )
-
 
 data class SyncMetaResponse(
     val diaries: List<SyncMeta>,
     val todos: List<SyncMeta>,
-    val periods: List<PeriodMeta>
+    val periods: List<PeriodMeta>,
+    val products: List<SyncMeta> = emptyList(),
 )

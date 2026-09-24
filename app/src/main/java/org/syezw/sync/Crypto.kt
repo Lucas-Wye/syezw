@@ -17,7 +17,10 @@ fun deriveAesKeyFromPassphrase(passphrase: String): SecretKeySpec {
     return SecretKeySpec(keyBytes, "AES")
 }
 
-fun encryptToBlob(plainBytes: ByteArray, key: SecretKeySpec): EncryptedBlob {
+fun encryptToBlob(
+    plainBytes: ByteArray,
+    key: SecretKeySpec,
+): EncryptedBlob {
     val iv = ByteArray(IV_SIZE_BYTES)
     SecureRandom().nextBytes(iv)
     val cipher = Cipher.getInstance(AES_MODE)
@@ -25,11 +28,14 @@ fun encryptToBlob(plainBytes: ByteArray, key: SecretKeySpec): EncryptedBlob {
     val encrypted = cipher.doFinal(plainBytes)
     return EncryptedBlob(
         iv = Base64.getEncoder().encodeToString(iv),
-        data = Base64.getEncoder().encodeToString(encrypted)
+        data = Base64.getEncoder().encodeToString(encrypted),
     )
 }
 
-fun decryptFromBlob(blob: EncryptedBlob, key: SecretKeySpec): ByteArray {
+fun decryptFromBlob(
+    blob: EncryptedBlob,
+    key: SecretKeySpec,
+): ByteArray {
     val iv = Base64.getDecoder().decode(blob.iv)
     val encrypted = Base64.getDecoder().decode(blob.data)
     val cipher = Cipher.getInstance(AES_MODE)

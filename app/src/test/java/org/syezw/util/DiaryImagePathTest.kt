@@ -5,7 +5,6 @@ import org.junit.Test
 import java.io.File
 
 class DiaryImagePathTest {
-
     @Test
     fun normalizeDiaryImageName_returnsFileNameForAbsolutePath() {
         val name = normalizeDiaryImageName("/storage/emulated/0/Download/syezw_diary_images/a.jpg")
@@ -26,11 +25,12 @@ class DiaryImagePathTest {
     @Test
     fun resolvePathFromDownloadsRelativePath_removesDownloadPrefix() {
         val downloadsDir = File("/tmp/downloads")
-        val file = resolvePathFromDownloadsRelativePath(
-            downloadsDir = downloadsDir,
-            relativePath = "Download/syezw_diary_images/",
-            fileName = "c.webp"
-        )
+        val file =
+            resolvePathFromDownloadsRelativePath(
+                downloadsDir = downloadsDir,
+                relativePath = "Download/syezw_diary_images/",
+                fileName = "c.webp",
+            )
         assertEquals(File(downloadsDir, "syezw_diary_images/c.webp").path, file.path)
     }
 

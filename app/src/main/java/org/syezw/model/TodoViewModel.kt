@@ -34,7 +34,7 @@ data class TodoUiState(
     val currentCreatedAt: Long = System.currentTimeMillis(), // Default to now for new tasks
     val currentCompletedAt: Long? = null,
     val allTasks: List<TodoTask> = emptyList(), // 保存所有未筛选的任务
-    val searchQuery: String = "" // 搜索查询文本
+    val searchQuery: String = "", // 搜索查询文本
 )
 
 internal fun sortTodoTasks(tasks: List<TodoTask>): List<TodoTask> {
@@ -42,12 +42,13 @@ internal fun sortTodoTasks(tasks: List<TodoTask>): List<TodoTask> {
         compareBy<TodoTask> { it.isCompleted }
             .thenByDescending { task ->
                 if (task.isCompleted) task.completedAt ?: Long.MIN_VALUE else task.createdAt
-            }
+            },
     )
 }
 
 class TodoViewModel(
-    private val todoTaskDao: TodoTaskDao, private val settingsManager: SettingsManager
+    private val todoTaskDao: TodoTaskDao,
+    private val settingsManager: SettingsManager,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TodoUiState())
     val uiState: StateFlow<TodoUiState> = _uiState.asStateFlow()
@@ -70,14 +71,17 @@ class TodoViewModel(
                     val filteredTasks = applySearch(sortedTasks, currentState.searchQuery)
                     currentState.copy(
                         tasks = filteredTasks,
-                        allTasks = sortedTasks
+                        allTasks = sortedTasks,
                     )
                 }
             }
         }
     }
 
-    private fun applySearch(tasks: List<TodoTask>, searchQuery: String): List<TodoTask> {
+    private fun applySearch(
+        tasks: List<TodoTask>,
+        searchQuery: String,
+    ): List<TodoTask> {
         if (searchQuery.isBlank()) {
             return tasks
         }
@@ -92,13 +96,16 @@ class TodoViewModel(
             val filteredTasks = applySearch(currentState.allTasks, query)
             currentState.copy(
                 searchQuery = query,
-                tasks = filteredTasks
+                tasks = filteredTasks,
             )
         }
     }
 
     // --- EXPORT FUNCTION ---
-    fun exportTodosToJson(context: Context, uri: Uri) {
+    fun exportTodosToJson(
+        context: Context,
+        uri: Uri,
+    ) {
         viewModelScope.launch {
             try {
                 // Using getAllTasksList() which you already have
@@ -135,7 +142,10 @@ class TodoViewModel(
     }
 
     // --- IMPORT FUNCTION ---
-    fun importTodosFromJson(context: Context, uri: Uri) {
+    fun importTodosFromJson(
+        context: Context,
+        uri: Uri,
+    ) {
         viewModelScope.launch {
             try {
                 val jsonString = StringBuilder()
@@ -164,7 +174,9 @@ class TodoViewModel(
                 if (importedTasks.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
-                            context, "No tasks found in the import file.", Toast.LENGTH_SHORT
+                            context,
+                            "No tasks found in the import file.",
+                            Toast.LENGTH_SHORT,
                         ).show()
                     }
                     return@launch
@@ -178,9 +190,10 @@ class TodoViewModel(
                     val task = importedTask.toTodoTask()
 
                     // Check for duplicates by name and createdAt
-                    val isDuplicate = existingTasks.any { existing ->
-                        existing.name == task.name && existing.createdAt == task.createdAt
-                    }
+                    val isDuplicate =
+                        existingTasks.any { existing ->
+                            existing.name == task.name && existing.createdAt == task.createdAt
+                        }
 
                     if (!isDuplicate) {
                         todoTaskDao.insert(task)
@@ -194,13 +207,13 @@ class TodoViewModel(
                         Toast.makeText(
                             context,
                             "$newTasksCount new tasks imported and merged!",
-                            Toast.LENGTH_LONG
+                            Toast.LENGTH_LONG,
                         ).show()
                     } else {
                         Toast.makeText(
                             context,
                             "No new tasks to import or all tasks were duplicates.",
-                            Toast.LENGTH_LONG
+                            Toast.LENGTH_LONG,
                         ).show()
                     }
                 }
@@ -221,14 +234,15 @@ class TodoViewModel(
         }
         viewModelScope.launch {
             val authorToUse = settingsManager.defaultAuthorFlow.first()
-            val newTask = TodoTask(
-                name = name,
-                author = authorToUse,
-                createdAt = System.currentTimeMillis(),
-                isCompleted = false,
-                completedAt = null,
-                updatedAt = System.currentTimeMillis()
-            )
+            val newTask =
+                TodoTask(
+                    name = name,
+                    author = authorToUse,
+                    createdAt = System.currentTimeMillis(),
+                    isCompleted = false,
+                    completedAt = null,
+                    updatedAt = System.currentTimeMillis(),
+                )
             todoTaskDao.insert(newTask)
             clearInputFields()
         }
@@ -238,12 +252,18 @@ class TodoViewModel(
         viewModelScope.launch {
             // If the task is being marked as completed, set completedAt.
             // If it's being marked as incomplete, clear completedAt.
-            val taskToUpdate = task.copy(
-                completedAt = if (task.isCompleted && task.completedAt == null) System.currentTimeMillis()
-                else if (!task.isCompleted) null
-                else task.completedAt,
-                updatedAt = System.currentTimeMillis()
-            )
+            val taskToUpdate =
+                task.copy(
+                    completedAt =
+                        if (task.isCompleted && task.completedAt == null) {
+                            System.currentTimeMillis()
+                        } else if (!task.isCompleted) {
+                            null
+                        } else {
+                            task.completedAt
+                        },
+                    updatedAt = System.currentTimeMillis(),
+                )
             todoTaskDao.update(taskToUpdate)
             clearInputFields()
         }
@@ -251,11 +271,12 @@ class TodoViewModel(
 
     fun toggleCompletion(task: TodoTask) {
         viewModelScope.launch {
-            val updatedTask = task.copy(
-                isCompleted = !task.isCompleted,
-                completedAt = if (!task.isCompleted) System.currentTimeMillis() else null,
-                updatedAt = System.currentTimeMillis()
-            )
+            val updatedTask =
+                task.copy(
+                    isCompleted = !task.isCompleted,
+                    completedAt = if (!task.isCompleted) System.currentTimeMillis() else null,
+                    updatedAt = System.currentTimeMillis(),
+                )
             todoTaskDao.update(updatedTask)
             // No need to clear input fields here typically, as it's a direct list item interaction
         }
@@ -273,9 +294,11 @@ class TodoViewModel(
                 selectedTask = task,
                 currentName = task?.name ?: "",
                 currentIsCompleted = task?.isCompleted ?: false,
-                currentCreatedAt = task?.createdAt
-                    ?: System.currentTimeMillis(), // Keep original createdAt for edits
-                currentCompletedAt = task?.completedAt
+                currentCreatedAt =
+                    task?.createdAt
+                        ?: System.currentTimeMillis(),
+                // Keep original createdAt for edits
+                currentCompletedAt = task?.completedAt,
             )
         }
     }
@@ -298,7 +321,7 @@ class TodoViewModel(
                     currentAuthor = currentDefaultAuthor, // Use the fetched author
                     currentIsCompleted = false,
                     currentCreatedAt = System.currentTimeMillis(),
-                    currentCompletedAt = null
+                    currentCompletedAt = null,
                 )
             }
         }
@@ -306,11 +329,13 @@ class TodoViewModel(
 }
 
 class TodoViewModelFactory(
-    private val todoTaskDao: TodoTaskDao, private val settingsManager: SettingsManager
+    private val todoTaskDao: TodoTaskDao,
+    private val settingsManager: SettingsManager,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TodoViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST") return TodoViewModel(todoTaskDao, settingsManager) as T
+            @Suppress("UNCHECKED_CAST")
+            return TodoViewModel(todoTaskDao, settingsManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

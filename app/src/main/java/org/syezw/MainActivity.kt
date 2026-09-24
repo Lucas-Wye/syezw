@@ -36,6 +36,8 @@ import org.syezw.model.DiaryViewModelFactory
 import org.syezw.model.GpsPrefKeys
 import org.syezw.model.PeriodViewModel
 import org.syezw.model.PeriodViewModelFactory
+import org.syezw.model.ProductViewModel
+import org.syezw.model.ProductViewModelFactory
 import org.syezw.model.SettingsViewModel
 import org.syezw.model.SettingsViewModelFactory
 import org.syezw.model.TodoViewModel
@@ -46,6 +48,7 @@ import org.syezw.screen.OurLove
 import org.syezw.screen.OurLoveViewModel
 import org.syezw.screen.OurLoveViewModelFactory
 import org.syezw.screen.PeriodTrackingScreen
+import org.syezw.screen.ProductScreen
 import org.syezw.screen.SettingsScreen
 import org.syezw.screen.TODOScreen
 import org.syezw.screen.TradeRecordScreen
@@ -68,14 +71,16 @@ class MainActivity : ComponentActivity() {
         handleGpsStateOnRestart()
 
         // Schedule periodic backup (every 30 days)
-        val backupRequest = androidx.work.PeriodicWorkRequestBuilder<org.syezw.worker.BackupWorker>(
-            30, java.util.concurrent.TimeUnit.DAYS
-        ).build()
+        val backupRequest =
+            androidx.work.PeriodicWorkRequestBuilder<org.syezw.worker.BackupWorker>(
+                30,
+                java.util.concurrent.TimeUnit.DAYS,
+            ).build()
 
         androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "MonthlyBackup",
             androidx.work.ExistingPeriodicWorkPolicy.KEEP,
-            backupRequest
+            backupRequest,
         )
 
         setContent {
@@ -116,42 +121,53 @@ fun SyezwAppScreen() {
     val settingsManager = remember { SettingsManager(context.dataStore) }
 
     // --- ViewModel Instantiation ---
-    val todoViewModel: TodoViewModel = viewModel(
-        factory = TodoViewModelFactory(database.todoTaskDao(), settingsManager)
-    )
-    val diaryViewModel: DiaryViewModel = viewModel(
-        factory = DiaryViewModelFactory(database.diaryDao(), settingsManager)
-    )
-    val ourLoveViewModel: OurLoveViewModel = viewModel(
-        factory = OurLoveViewModelFactory(settingsManager)
-    )
-    val settingsViewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(
-            application,
-            database,
-            context.dataStore,
-            settingsManager
+    val todoViewModel: TodoViewModel =
+        viewModel(
+            factory = TodoViewModelFactory(database.todoTaskDao(), settingsManager),
         )
-    )
-    val periodViewModel: PeriodViewModel = viewModel(
-        factory = PeriodViewModelFactory(database.periodDao())
-    )
+    val diaryViewModel: DiaryViewModel =
+        viewModel(
+            factory = DiaryViewModelFactory(database.diaryDao(), settingsManager),
+        )
+    val ourLoveViewModel: OurLoveViewModel =
+        viewModel(
+            factory = OurLoveViewModelFactory(settingsManager),
+        )
+    val settingsViewModel: SettingsViewModel =
+        viewModel(
+            factory =
+                SettingsViewModelFactory(
+                    application,
+                    database,
+                    context.dataStore,
+                    settingsManager,
+                ),
+        )
+    val periodViewModel: PeriodViewModel =
+        viewModel(
+            factory = PeriodViewModelFactory(database.periodDao()),
+        )
+    val productViewModel: ProductViewModel =
+        viewModel(
+            factory = ProductViewModelFactory(database.productOfferDao()),
+        )
 
     // 从 SettingsViewModel 监听周期记录的开关状态
     val isPeriodTrackingEnabled by settingsViewModel.isPeriodTrackingEnabled.collectAsState()
 
     // 根据开关状态，动态地创建可见的导航目标列表
-    val visibleDestinations = remember(isPeriodTrackingEnabled) {
-        AppDestinations.entries.filter { destination ->
-            destination != AppDestinations.PERIOD || isPeriodTrackingEnabled
+    val visibleDestinations =
+        remember(isPeriodTrackingEnabled) {
+            AppDestinations.entries.filter { destination ->
+                destination != AppDestinations.PERIOD || isPeriodTrackingEnabled
+            }
         }
-    }
 
     if (showTradeRecordScreen) {
         TradeRecordScreen(
             settingsViewModel = settingsViewModel,
             modifier = Modifier.fillMaxSize(),
-            onBack = { showTradeRecordScreen = false }
+            onBack = { showTradeRecordScreen = false },
         )
     } else {
         NavigationSuiteScaffold(
@@ -161,48 +177,64 @@ fun SyezwAppScreen() {
                         icon = {
                             Icon(
                                 imageVector = destination.icon,
-                                contentDescription = destination.label
+                                contentDescription = destination.label,
                             )
                         },
                         label = { Text(destination.label) },
                         selected = destination == currentDestination,
-                        onClick = { currentDestination = destination }
+                        onClick = { currentDestination = destination },
                     )
                 }
-            }) {
+            },
+        ) {
             Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                 val screenModifier = Modifier.padding(innerPadding)
 
                 when (currentDestination) {
-                    AppDestinations.HOME -> OurLove(
-                        viewModel = ourLoveViewModel, modifier = screenModifier
-                    )
+                    AppDestinations.HOME ->
+                        OurLove(
+                            viewModel = ourLoveViewModel,
+                            modifier = screenModifier,
+                        )
 
-                    AppDestinations.TODO -> TODOScreen(
-                        viewModel = todoViewModel, modifier = screenModifier
-                    )
+                    AppDestinations.TODO ->
+                        TODOScreen(
+                            viewModel = todoViewModel,
+                            modifier = screenModifier,
+                        )
 
-                    AppDestinations.DIARY -> DiaryScreen(
-                        viewModel = diaryViewModel,
-                        settingsViewModel = settingsViewModel,
-                        modifier = screenModifier,
-                        onNavigateToEditEntry = { entryId ->
-                            if (entryId != null) {
-                                diaryViewModel.getEntryById(entryId)
-                            } else {
-                                diaryViewModel.clearInputFields()
-                            }
-                        })
+                    AppDestinations.DIARY ->
+                        DiaryScreen(
+                            viewModel = diaryViewModel,
+                            settingsViewModel = settingsViewModel,
+                            modifier = screenModifier,
+                            onNavigateToEditEntry = { entryId ->
+                                if (entryId != null) {
+                                    diaryViewModel.getEntryById(entryId)
+                                } else {
+                                    diaryViewModel.clearInputFields()
+                                }
+                            },
+                        )
 
-                    AppDestinations.PERIOD -> PeriodTrackingScreen(
-                        viewModel = periodViewModel, modifier = screenModifier
-                    )
+                    AppDestinations.PERIOD ->
+                        PeriodTrackingScreen(
+                            viewModel = periodViewModel,
+                            modifier = screenModifier,
+                        )
 
-                    AppDestinations.SETTINGS -> SettingsScreen(
-                        settingsViewModel = settingsViewModel,
-                        modifier = screenModifier,
-                        onOpenTradeRecord = { showTradeRecordScreen = true }
-                    )
+                    AppDestinations.PRODUCTS ->
+                        ProductScreen(
+                            viewModel = productViewModel,
+                            modifier = screenModifier,
+                        )
+
+                    AppDestinations.SETTINGS ->
+                        SettingsScreen(
+                            settingsViewModel = settingsViewModel,
+                            modifier = screenModifier,
+                            onOpenTradeRecord = { showTradeRecordScreen = true },
+                        )
                 }
             }
         }

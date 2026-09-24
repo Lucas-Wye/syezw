@@ -11,7 +11,7 @@ fun diaryImagesRelativePath(): String = "$DOWNLOAD_RELATIVE_PREFIX$DIARY_IMAGES_
 fun resolvePathFromDownloadsRelativePath(
     downloadsDir: File,
     relativePath: String,
-    fileName: String
+    fileName: String,
 ): File {
     return File(downloadsDir, relativePath.removePrefix(DOWNLOAD_RELATIVE_PREFIX) + fileName)
 }
@@ -22,7 +22,10 @@ fun resolveDiaryImagePath(nameOrPath: String): String {
     return resolveDiaryImagePath(nameOrPath, downloadsDir)
 }
 
-fun resolveDiaryImagePath(nameOrPath: String, downloadsDir: File): String {
+fun resolveDiaryImagePath(
+    nameOrPath: String,
+    downloadsDir: File,
+): String {
     val file = File(nameOrPath)
     if (file.isAbsolute) {
         return file.path

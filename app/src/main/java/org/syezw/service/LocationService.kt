@@ -36,7 +36,6 @@ import org.syezw.util.GpsLocationSaver
 import org.syezw.util.toGpsLocationSample
 
 class LocationService : Service() {
-
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -64,14 +63,15 @@ class LocationService : Service() {
             priority: Int = DEFAULT_PRIORITY,
             intervalMs: Long = DEFAULT_INTERVAL_MS,
             fastestIntervalMs: Long = DEFAULT_FASTEST_INTERVAL_MS,
-            author: String = SettingsManager.DEFAULT_AUTHOR_VALUE
+            author: String = SettingsManager.DEFAULT_AUTHOR_VALUE,
         ) {
-            val intent = Intent(context, LocationService::class.java).apply {
-                putExtra(EXTRA_PRIORITY, priority)
-                putExtra(EXTRA_INTERVAL_MS, intervalMs)
-                putExtra(EXTRA_FASTEST_INTERVAL_MS, fastestIntervalMs)
-                putExtra(EXTRA_AUTHOR, author)
-            }
+            val intent =
+                Intent(context, LocationService::class.java).apply {
+                    putExtra(EXTRA_PRIORITY, priority)
+                    putExtra(EXTRA_INTERVAL_MS, intervalMs)
+                    putExtra(EXTRA_FASTEST_INTERVAL_MS, fastestIntervalMs)
+                    putExtra(EXTRA_AUTHOR, author)
+                }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -80,9 +80,10 @@ class LocationService : Service() {
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, LocationService::class.java).apply {
-                action = ACTION_STOP
-            }
+            val intent =
+                Intent(context, LocationService::class.java).apply {
+                    action = ACTION_STOP
+                }
             context.startService(intent)
         }
     }
@@ -94,7 +95,11 @@ class LocationService : Service() {
         createNotificationChannel()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         if (intent?.action == ACTION_STOP) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -108,8 +113,9 @@ class LocationService : Service() {
 
         if (intent != null && intent.hasExtra(EXTRA_PRIORITY)) {
             priority = intent.getIntExtra(EXTRA_PRIORITY, DEFAULT_PRIORITY)
-            intervalMs = intent.getLongExtra(EXTRA_INTERVAL_MS, DEFAULT_INTERVAL_MS)
-                .coerceAtLeast(MIN_INTERVAL_MS)
+            intervalMs =
+                intent.getLongExtra(EXTRA_INTERVAL_MS, DEFAULT_INTERVAL_MS)
+                    .coerceAtLeast(MIN_INTERVAL_MS)
             fastestIntervalMs =
                 intent.getLongExtra(EXTRA_FASTEST_INTERVAL_MS, DEFAULT_FASTEST_INTERVAL_MS)
                     .coerceAtLeast(MIN_INTERVAL_MS)
@@ -120,7 +126,7 @@ class LocationService : Service() {
             intervalMs = (prefs?.intervalMs ?: DEFAULT_INTERVAL_MS).coerceAtLeast(MIN_INTERVAL_MS)
             fastestIntervalMs =
                 (prefs?.fastestIntervalMs ?: DEFAULT_FASTEST_INTERVAL_MS).coerceAtLeast(
-                    MIN_INTERVAL_MS
+                    MIN_INTERVAL_MS,
                 )
             author = prefs?.author ?: SettingsManager.DEFAULT_AUTHOR_VALUE
         }
@@ -130,7 +136,7 @@ class LocationService : Service() {
             startForeground(
                 NOTIFICATION_ID,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
             )
         } else {
             startForeground(NOTIFICATION_ID, notification)
@@ -146,27 +152,30 @@ class LocationService : Service() {
         val priority: Int,
         val intervalMs: Long,
         val fastestIntervalMs: Long,
-        val author: String
+        val author: String,
     )
 
     private fun runBlockingReadPrefs(): RestoredPrefs? {
-        val prefs = runCatching {
-            kotlinx.coroutines.runBlocking {
-                dataStore.data.first()
-            }
-        }.getOrNull() ?: return null
+        val prefs =
+            runCatching {
+                kotlinx.coroutines.runBlocking {
+                    dataStore.data.first()
+                }
+            }.getOrNull() ?: return null
 
         val priorityStr = prefs[GpsPrefKeys.GPS_PRIORITY] ?: "balanced"
-        val priority = when (priorityStr) {
-            "high_accuracy" -> Priority.PRIORITY_HIGH_ACCURACY
-            "balanced" -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
-            "low_power" -> Priority.PRIORITY_LOW_POWER
-            "no_power" -> Priority.PRIORITY_PASSIVE
-            else -> DEFAULT_PRIORITY
-        }
+        val priority =
+            when (priorityStr) {
+                "high_accuracy" -> Priority.PRIORITY_HIGH_ACCURACY
+                "balanced" -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+                "low_power" -> Priority.PRIORITY_LOW_POWER
+                "no_power" -> Priority.PRIORITY_PASSIVE
+                else -> DEFAULT_PRIORITY
+            }
         val intervalMs = prefs[GpsPrefKeys.GPS_INTERVAL_MS]?.toLongOrNull() ?: DEFAULT_INTERVAL_MS
-        val fastestIntervalMs = prefs[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS]?.toLongOrNull()
-            ?: DEFAULT_FASTEST_INTERVAL_MS
+        val fastestIntervalMs =
+            prefs[GpsPrefKeys.GPS_FASTEST_INTERVAL_MS]?.toLongOrNull()
+                ?: DEFAULT_FASTEST_INTERVAL_MS
         val author =
             prefs[SettingsManager.DEFAULT_AUTHOR_KEY] ?: SettingsManager.DEFAULT_AUTHOR_VALUE
 
@@ -191,7 +200,7 @@ class LocationService : Service() {
             } else {
                 @Suppress("DEPRECATION")
                 locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ||
-                        locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+                    locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to check location enabled status", e)
@@ -201,16 +210,17 @@ class LocationService : Service() {
 
     private fun startGpsStatusCheck() {
         gpsCheckTimer?.cancel()
-        gpsCheckTimer = serviceScope.launch {
-            while (true) {
-                delay(30_000)
-                if (!isSystemLocationEnabled()) {
-                    Log.w(TAG, "System location service disabled, stopping GPS tracking")
-                    stopSelf()
-                    break
+        gpsCheckTimer =
+            serviceScope.launch {
+                while (true) {
+                    delay(30_000)
+                    if (!isSystemLocationEnabled()) {
+                        Log.w(TAG, "System location service disabled, stopping GPS tracking")
+                        stopSelf()
+                        break
+                    }
                 }
             }
-        }
     }
 
     private fun stopGpsStatusCheck() {
@@ -220,32 +230,40 @@ class LocationService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "GPS Location Tracking",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Notification for background GPS location tracking"
-            }
+            val channel =
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "GPS Location Tracking",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Notification for background GPS location tracking"
+                }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
     }
 
     private fun buildNotification(): Notification {
-        val stopIntent = Intent(this, LocationService::class.java).apply {
-            action = ACTION_STOP
-        }
-        val stopPendingIntent = PendingIntent.getService(
-            this, 0, stopIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val stopIntent =
+            Intent(this, LocationService::class.java).apply {
+                action = ACTION_STOP
+            }
+        val stopPendingIntent =
+            PendingIntent.getService(
+                this,
+                0,
+                stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         val contentIntent = Intent(this, MainActivity::class.java)
-        val contentPendingIntent = PendingIntent.getActivity(
-            this, 0, contentIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val contentPendingIntent =
+            PendingIntent.getActivity(
+                this,
+                0,
+                contentIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Location Tracking")
@@ -260,36 +278,38 @@ class LocationService : Service() {
         priority: Int,
         intervalMs: Long,
         fastestIntervalMs: Long,
-        author: String
+        author: String,
     ) {
-        val locationRequest = LocationRequest.Builder(intervalMs)
-            .setMinUpdateIntervalMillis(fastestIntervalMs)
-            .setPriority(priority)
-            .build()
+        val locationRequest =
+            LocationRequest.Builder(intervalMs)
+                .setMinUpdateIntervalMillis(fastestIntervalMs)
+                .setPriority(priority)
+                .build()
 
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                result.locations.forEach { location ->
-                    serviceScope.launch {
-                        try {
-                            GpsLocationSaver.saveLocation(
-                                database.gpsLocationDao(),
-                                location.toGpsLocationSample(),
-                                author
-                            )
-                        } catch (e: SQLiteException) {
-                            Log.e(TAG, "Failed to persist GPS location", e)
+        locationCallback =
+            object : LocationCallback() {
+                override fun onLocationResult(result: LocationResult) {
+                    result.locations.forEach { location ->
+                        serviceScope.launch {
+                            try {
+                                GpsLocationSaver.saveLocation(
+                                    database.gpsLocationDao(),
+                                    location.toGpsLocationSample(),
+                                    author,
+                                )
+                            } catch (e: SQLiteException) {
+                                Log.e(TAG, "Failed to persist GPS location", e)
+                            }
                         }
                     }
                 }
             }
-        }
 
         try {
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
                 locationCallback,
-                Looper.getMainLooper()
+                Looper.getMainLooper(),
             )
         } catch (e: SecurityException) {
             Log.e(TAG, "Missing location permission, stopping service", e)
@@ -307,5 +327,4 @@ class LocationService : Service() {
             Log.e(TAG, "Failed to remove location updates due to missing permission", e)
         }
     }
-
 }

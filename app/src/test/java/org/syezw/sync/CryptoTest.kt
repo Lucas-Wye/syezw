@@ -5,7 +5,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class CryptoTest {
-
     @Test
     fun deriveAesKeyFromPassphrase_produces16Bytes() {
         val key = deriveAesKeyFromPassphrase("test-passphrase")
