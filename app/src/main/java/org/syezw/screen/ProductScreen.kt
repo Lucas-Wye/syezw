@@ -14,14 +14,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.syezw.data.ProductOffer
 import org.syezw.model.ProductViewModel
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.*
 
 private fun dateText(value: Long) = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(value))
 
-private fun number(value: Double) = String.format(Locale.getDefault(), "%.2f", value)
+private fun number(value: Double): String {
+    val df = DecimalFormat("0.##", DecimalFormatSymbols(Locale.getDefault()))
+    return df.format(value)
+}
 
-private fun number_more_float(value: Double) = String.format(Locale.getDefault(), "%.4f", value)
+private fun number_more_float(value: Double): String {
+    val df = DecimalFormat("0.####", DecimalFormatSymbols(Locale.getDefault()))
+    return df.format(value)
+}
 
 private fun isCandidateText(value: String): Boolean = value.none { it == '(' || it == ')' || it == '（' || it == '）' }
 
@@ -74,7 +82,11 @@ fun ProductScreen(
                     ) {
                         Column(Modifier.padding(14.dp)) {
                             Text(name, style = MaterialTheme.typography.titleMedium)
-                            Text("${entries.size} 个商家 · 最低单价 ${number_more_float(cheapest.unitPrice)}/${cheapest.quantityUnit}（${cheapest.merchant}）")
+                            Text(
+                                "${entries.size} 个商家 · 最低单价 ${number_more_float(
+                                    cheapest.unitPrice,
+                                )}/${cheapest.quantityUnit}（${cheapest.merchant}）",
+                            )
                             Text(entries.joinToString("、") { it.merchant }, style = MaterialTheme.typography.bodySmall)
                         }
                     }
@@ -248,7 +260,7 @@ private fun OfferEditor(
     var unitExpanded by remember { mutableStateOf(false) }
     val unitOptions =
         remember(unit) {
-            listOf("g", "kg", "mg", "ml", "L", "个", "件", "盒", "袋", "瓶", "包", "只", "张", unit)
+            listOf("g", "kg", "mg", "mL", "L", "个", "件", "盒", "袋", "瓶", "包", "只", "张", unit)
                 .filter(String::isNotBlank)
                 .distinct()
         }
