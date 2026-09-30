@@ -65,20 +65,10 @@ android sdk install "platforms;android-30" "build-tools;30.0.0"
 
 # DB
 ```
--- 列出所有用户及其角色
-\du
--- 显示更详细的用户权限信息
-\du+
--- 创建数据库
-CREATE DATABASE $db OWNER $user ENCODING 'UTF8';
--- 选择数据库
-\c $db 
--- 查看当前数据库
-\c
--- 显示数据表 
-\dt 
--- 查看数据库
-\l
+# Backend uses SQLite. Set DATABASE_URL if the database file should live elsewhere.
+# Default: sqlite://syezw.db (relative to the backend working directory).
+sqlite3 backend/syezw.db
+.tables
 
 DELETE FROM diary_sync;
 DELETE FROM todo_sync;

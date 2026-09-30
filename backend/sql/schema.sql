@@ -31,12 +31,11 @@ CREATE TABLE IF NOT EXISTS product_sync (
     name TEXT NOT NULL,
     timestamp BIGINT NOT NULL,
     updated_at BIGINT NOT NULL,
+    discount REAL NOT NULL DEFAULT 1.0,
+    notes TEXT NOT NULL DEFAULT '',
     payload_iv TEXT NOT NULL,
     payload_data TEXT NOT NULL
 );
-
-ALTER TABLE product_sync ADD COLUMN IF NOT EXISTS discount DOUBLE PRECISION NOT NULL DEFAULT 1.0;
-ALTER TABLE product_sync ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS diary_images (
     hash TEXT PRIMARY KEY,

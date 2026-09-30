@@ -1,6 +1,5 @@
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
-use chrono::NaiveDate;
-use sqlx::{PgPool, Row};
+use sqlx::{Row, SqlitePool};
 
 pub mod db;
 pub mod models;
@@ -18,7 +17,7 @@ use models::{
 #[derive(Clone)]
 pub struct AppState {
     pub env: EnvConfig,
-    pub pool: PgPool,
+    pub pool: SqlitePool,
 }
 
 /// Constant-time string comparison to prevent timing attacks on API key validation.
@@ -330,7 +329,7 @@ pub async fn sync_download(
 
     let period_rows = match sqlx::query(
         r#"
-        SELECT start_date::text as start_date, end_date::text as end_date, updated_at, payload_iv, payload_data
+        SELECT start_date, end_date, updated_at, payload_iv, payload_data
         FROM period_sync
         "#,
     )
@@ -340,12 +339,26 @@ pub async fn sync_download(
         Ok(rows) => rows,
         Err(e) => {
             warn!("sync_download: period query failed: {}", e);
-            return Ok(HttpResponse::InternalServerError().json(SyncDownloadEnvelope {
-                ok: false,
-                message: format!("period query failed: {}", e),
-                counts: SyncCounts { diaries: 0, todos: 0, periods: 0, images: 0, products: 0 },
-                data: SyncDownloadResponse { diaries: vec![], todos: vec![], periods: vec![], images: vec![], products: vec![] },
-            }));
+            return Ok(
+                HttpResponse::InternalServerError().json(SyncDownloadEnvelope {
+                    ok: false,
+                    message: format!("period query failed: {}", e),
+                    counts: SyncCounts {
+                        diaries: 0,
+                        todos: 0,
+                        periods: 0,
+                        images: 0,
+                        products: 0,
+                    },
+                    data: SyncDownloadResponse {
+                        diaries: vec![],
+                        todos: vec![],
+                        periods: vec![],
+                        images: vec![],
+                        products: vec![],
+                    },
+                }),
+            );
         }
     };
     let periods = period_rows
@@ -460,7 +473,7 @@ pub async fn image_fetch(
         SELECT r.file_name, r.diary_uuid, r.updated_at, r.hash, i.blob_iv, i.blob_data
         FROM diary_image_refs r
         JOIN diary_images i ON i.hash = r.hash
-        WHERE r.diary_uuid = $1 AND r.file_name = $2
+        WHERE r.diary_uuid = ? AND r.file_name = ?
         "#,
     )
     .bind(&payload.diary_uuid)
@@ -561,7 +574,7 @@ pub async fn image_upload(
         if let Err(e) = sqlx::query(
             r#"
             INSERT INTO diary_images (hash, blob_iv, blob_data, updated_at)
-            VALUES ($1, $2, $3, $4)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT (hash) DO UPDATE SET
                 blob_iv = EXCLUDED.blob_iv,
                 blob_data = EXCLUDED.blob_data,
@@ -609,7 +622,7 @@ pub async fn image_refs_upsert(
         if let Err(e) = sqlx::query(
             r#"
             INSERT INTO diary_image_refs (diary_uuid, file_name, hash, updated_at)
-            VALUES ($1, $2, $3, $4)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT (diary_uuid, file_name) DO UPDATE SET
                 hash = EXCLUDED.hash,
                 updated_at = EXCLUDED.updated_at
@@ -680,17 +693,16 @@ pub async fn sync_meta(
         })
         .collect();
 
-    let period_rows =
-        match sqlx::query("SELECT start_date::text as start_date, updated_at FROM period_sync")
-            .fetch_all(&state.pool)
-            .await
-        {
-            Ok(rows) => rows,
-            Err(e) => {
-                warn!("sync_meta: period query failed: {}", e);
-                return Ok(HttpResponse::InternalServerError().finish());
-            }
-        };
+    let period_rows = match sqlx::query("SELECT start_date, updated_at FROM period_sync")
+        .fetch_all(&state.pool)
+        .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            warn!("sync_meta: period query failed: {}", e);
+            return Ok(HttpResponse::InternalServerError().finish());
+        }
+    };
     let periods = period_rows
         .into_iter()
         .map(|row| PeriodMeta {
@@ -726,13 +738,13 @@ pub async fn sync_meta(
 }
 
 async fn upsert_diary(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     item: &DiarySyncItem,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         INSERT INTO diary_sync (uuid, author, timestamp, updated_at, payload_iv, payload_data)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT (uuid) DO UPDATE SET
             author = EXCLUDED.author,
             timestamp = EXCLUDED.timestamp,
@@ -753,14 +765,14 @@ async fn upsert_diary(
 }
 
 async fn upsert_todo(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     item: &TodoSyncItem,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         INSERT INTO todo_sync (
             uuid, author, is_completed, created_at, completed_at, updated_at, payload_iv, payload_data
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (uuid) DO UPDATE SET
             author = EXCLUDED.author,
             is_completed = EXCLUDED.is_completed,
@@ -785,17 +797,15 @@ async fn upsert_todo(
 }
 
 async fn upsert_period(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     item: &PeriodSyncItem,
 ) -> Result<(), actix_web::Error> {
-    let start_date = NaiveDate::parse_from_str(&item.start_date, "%Y-%m-%d")
-        .map_err(actix_web::error::ErrorBadRequest)?;
-    let end_date = NaiveDate::parse_from_str(&item.end_date, "%Y-%m-%d")
-        .map_err(actix_web::error::ErrorBadRequest)?;
+    let start_date = &item.start_date;
+    let end_date = &item.end_date;
     sqlx::query(
         r#"
         INSERT INTO period_sync (start_date, end_date, updated_at, payload_iv, payload_data)
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT (start_date) DO UPDATE SET
             end_date = EXCLUDED.end_date,
             updated_at = EXCLUDED.updated_at,
@@ -815,12 +825,12 @@ async fn upsert_period(
 }
 
 async fn upsert_product(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     item: &ProductSyncItem,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(r#"
         INSERT INTO product_sync (id, name, timestamp, updated_at, discount, notes, payload_iv, payload_data)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, timestamp = EXCLUDED.timestamp,
           updated_at = EXCLUDED.updated_at, discount = EXCLUDED.discount, notes = EXCLUDED.notes,
           payload_iv = EXCLUDED.payload_iv, payload_data = EXCLUDED.payload_data
@@ -832,14 +842,14 @@ async fn upsert_product(
 }
 
 async fn upsert_image(
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     item: &DiaryImageSyncItem,
 ) -> Result<(), sqlx::Error> {
     // Store image blob once per hash.
     sqlx::query(
         r#"
         INSERT INTO diary_images (hash, blob_iv, blob_data, updated_at)
-        VALUES ($1, $2, $3, $4)
+        VALUES (?, ?, ?, ?)
         ON CONFLICT (hash) DO UPDATE SET
             blob_iv = EXCLUDED.blob_iv,
             blob_data = EXCLUDED.blob_data,
@@ -857,7 +867,7 @@ async fn upsert_image(
     sqlx::query(
         r#"
         INSERT INTO diary_image_refs (diary_uuid, file_name, hash, updated_at)
-        VALUES ($1, $2, $3, $4)
+        VALUES (?, ?, ?, ?)
         ON CONFLICT (diary_uuid, file_name) DO UPDATE SET
             hash = EXCLUDED.hash,
             updated_at = EXCLUDED.updated_at

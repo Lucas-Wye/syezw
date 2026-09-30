@@ -1,8 +1,5 @@
 use actix_web::{test, web, App};
-use dotenvy::dotenv;
-use sqlx::postgres::PgPoolOptions;
-use sqlx::Executor;
-use std::env;
+use sqlx::sqlite::SqlitePoolOptions;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 use syezw_sync_backend::db::EnvConfig;
@@ -11,63 +8,28 @@ use syezw_sync_backend::models::{
     SyncDownloadEnvelope, SyncDownloadRequest, SyncUploadRequest, TodoSyncItem,
 };
 
-fn log_db_info(label: &str, host: &str, port: i32, db: &str, user: &str) {
-    eprintln!(
-        "[{}] DB config: host={}, port={}, db={}, user={}",
-        label, host, port, db, user
-    );
+async fn test_pool() -> sqlx::SqlitePool {
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect("sqlite::memory:") // 使用内存作为数据库
+        .await
+        .expect("connect in-memory SQLite test db");
+    for statement in include_str!("../sql/schema.sql")
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        sqlx::query(statement)
+            .execute(&pool)
+            .await
+            .expect("apply schema");
+    }
+    pool
 }
 
 #[actix_web::test]
 async fn upload_then_download_round_trip() {
-    dotenv().ok();
-    let test_host = env::var("PG_HOST").unwrap_or_default();
-    let test_port = env::var("PG_PORT")
-        .ok()
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
-    let test_db = env::var("TEST_PG_DB").unwrap_or_default();
-    let test_user = env::var("PG_USER").unwrap_or_default();
-    let test_password = env::var("PG_PASSWORD").unwrap_or_default();
-    if test_host.is_empty() || test_db.is_empty() || test_user.is_empty() {
-        eprintln!(
-            "TEST_PG_* vars not set, skipping integration test. Missing: {}{}{}",
-            if test_host.is_empty() { "PG_HOST " } else { "" },
-            if test_db.is_empty() {
-                "TEST_PG_DB "
-            } else {
-                ""
-            },
-            if test_user.is_empty() { "PG_USER " } else { "" }
-        );
-        return;
-    }
-
-    log_db_info(
-        "upload_then_download_round_trip",
-        &test_host,
-        if test_port == 0 { 5432 } else { test_port },
-        &test_db,
-        &test_user,
-    );
-
-    let test_db_url = format!(
-        "postgres://{}:{}@{}:{}/{}",
-        test_user,
-        test_password,
-        test_host,
-        if test_port == 0 { 5432 } else { test_port },
-        test_db
-    );
-
-    let pool = PgPoolOptions::new()
-        .max_connections(1)
-        .connect(&test_db_url)
-        .await
-        .expect("connect test db");
-
-    let schema = std::fs::read_to_string("sql/schema.sql").expect("read schema");
-    pool.execute(schema.as_str()).await.expect("apply schema");
+    let pool = test_pool().await;
 
     let suffix = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -154,7 +116,7 @@ async fn upload_then_download_round_trip() {
 
     let req = test::TestRequest::post()
         .uri("/sync/upload")
-        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap()))
+        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap_or_default()))
         .set_json(&upload)
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -168,7 +130,7 @@ async fn upload_then_download_round_trip() {
     };
     let req = test::TestRequest::post()
         .uri("/sync/download")
-        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap()))
+        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap_or_default()))
         .set_json(&download_req)
         .to_request();
     let resp: SyncDownloadEnvelope = test::call_and_read_body_json(&app, req).await;
@@ -190,54 +152,7 @@ async fn upload_then_download_round_trip() {
 
 #[actix_web::test]
 async fn upload_with_image_hash_dedup_and_fetch() {
-    dotenv().ok();
-    let test_host = env::var("PG_HOST").unwrap_or_default();
-    let test_port = env::var("PG_PORT")
-        .ok()
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
-    let test_db = env::var("TEST_PG_DB").unwrap_or_default();
-    let test_user = env::var("PG_USER").unwrap_or_default();
-    let test_password = env::var("PG_PASSWORD").unwrap_or_default();
-    if test_host.is_empty() || test_db.is_empty() || test_user.is_empty() {
-        eprintln!(
-            "TEST_PG_* vars not set, skipping integration test. Missing: {}{}{}",
-            if test_host.is_empty() { "PG_HOST " } else { "" },
-            if test_db.is_empty() {
-                "TEST_PG_DB "
-            } else {
-                ""
-            },
-            if test_user.is_empty() { "PG_USER " } else { "" }
-        );
-        return;
-    }
-
-    log_db_info(
-        "upload_with_image_hash_dedup_and_fetch",
-        &test_host,
-        if test_port == 0 { 5432 } else { test_port },
-        &test_db,
-        &test_user,
-    );
-
-    let test_db_url = format!(
-        "postgres://{}:{}@{}:{}/{}",
-        test_user,
-        test_password,
-        test_host,
-        if test_port == 0 { 5432 } else { test_port },
-        test_db
-    );
-
-    let pool = PgPoolOptions::new()
-        .max_connections(1)
-        .connect(&test_db_url)
-        .await
-        .expect("connect test db");
-
-    let schema = std::fs::read_to_string("sql/schema.sql").expect("read schema");
-    pool.execute(schema.as_str()).await.expect("apply schema");
+    let pool = test_pool().await;
 
     let suffix = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -312,7 +227,7 @@ async fn upload_with_image_hash_dedup_and_fetch() {
 
     let req = test::TestRequest::post()
         .uri("/sync/upload")
-        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap()))
+        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap_or_default()))
         .set_json(&upload)
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -321,7 +236,7 @@ async fn upload_with_image_hash_dedup_and_fetch() {
     // Upload images (simulate new hash)
     let req = test::TestRequest::post()
         .uri("/images/upload")
-        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap()))
+        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap_or_default()))
         .set_json(&syezw_sync_backend::models::ImageUploadRequest {
             images: vec![DiaryImageSyncItem {
                 file_name: "img.jpg".to_string(),
@@ -340,7 +255,7 @@ async fn upload_with_image_hash_dedup_and_fetch() {
 
     let req = test::TestRequest::post()
         .uri("/images/refs/upsert")
-        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap()))
+        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap_or_default()))
         .set_json(&syezw_sync_backend::models::ImageRefsUpsertRequest {
             refs: vec![syezw_sync_backend::models::DiaryImageRefItem {
                 diary_uuid: diary_uuid.clone(),
@@ -355,7 +270,7 @@ async fn upload_with_image_hash_dedup_and_fetch() {
 
     let req = test::TestRequest::post()
         .uri("/images/fetch")
-        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap()))
+        .insert_header(("X-API-Key", std::env::var("API_KEY").unwrap_or_default()))
         .set_json(&syezw_sync_backend::models::ImageFetchRequest {
             diary_uuid: diary_uuid,
             file_name: "img.jpg".to_string(),

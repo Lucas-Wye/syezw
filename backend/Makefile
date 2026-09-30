@@ -1,5 +1,3 @@
-# command
-```
 build:
 	cargo build
 
@@ -13,4 +11,3 @@ check:
 	cargo check
 	cargo clippy -- -D warnings
 	cargo fmt -- --check
-```

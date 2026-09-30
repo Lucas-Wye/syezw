@@ -2,7 +2,7 @@
 
 This document describes the current app features, local Room database design, backend service,
 sync/encryption flow, image handling, and how data moves between the Android app and the backend
-PostgreSQL database.
+SQLite database.
 
 ## 1) App Features
 
@@ -98,7 +98,7 @@ blobs.
 
 - Rust + Actix Web.
 - Reads DB config from `.env` (backend controlled).
-- Creates a global `PgPool` on startup and reuses it for all requests.
+- Creates a global SQLite connection pool on startup and reuses it for all requests.
 - No server-side decryption; encrypted payloads are stored and returned as-is.
 
 ### Environment Variables
@@ -106,16 +106,10 @@ blobs.
 Backend (`backend/.env`):
 
 - `BIND_ADDR`
-- `PG_HOST`
-- `PG_PORT`
-- `PG_DB`
-- `PG_USER`
-- `PG_PASSWORD`
+- `DATABASE_URL` (defaults to `sqlite://syezw.db`)
 - `API_KEY` (required if set; clients must send `X-API-Key`)
 
-Tests (`backend/.env`):
-
-- `TEST_PG_DB`
+Backend tests use an isolated in-memory SQLite database.
 
 ### Endpoints
 
@@ -140,7 +134,7 @@ Tests (`backend/.env`):
 - `POST /images/fetch`
     - Fetch one image blob by diary_uuid + file_name.
 
-## 4) Backend Database Schema (PostgreSQL)
+## 4) Backend Database Schema (SQLite)
 
 Tables (see `backend/sql/schema.sql`):
 
@@ -155,6 +149,9 @@ Tables (see `backend/sql/schema.sql`):
 - `period_sync`
     - `start_date` PK, `end_date`
     - `updated_at`, `payload_iv`, `payload_data`
+- `product_sync`
+    - `id` PK, `name`, `timestamp`, `updated_at`, `discount`, `notes`
+    - `payload_iv`, `payload_data`
 - `diary_images`
     - `hash` PK
     - `blob_iv`, `blob_data`, `updated_at`
