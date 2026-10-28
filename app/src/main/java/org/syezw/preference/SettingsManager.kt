@@ -25,9 +25,10 @@ class SettingsManager(private val dataStore: DataStore<Preferences>) {
     }
 
     // Flow for the default author
-    val defaultAuthorFlow: Flow<String> = dataStore.data.map { preferences ->
-        preferences[DEFAULT_AUTHOR_KEY] ?: DEFAULT_AUTHOR_VALUE
-    }
+    val defaultAuthorFlow: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[DEFAULT_AUTHOR_KEY] ?: DEFAULT_AUTHOR_VALUE
+        }
 
     // Function to save the default author
     suspend fun setDefaultAuthor(author: String) {
@@ -37,9 +38,10 @@ class SettingsManager(private val dataStore: DataStore<Preferences>) {
     }
 
     // Flow for the date
-    val dateFlow: Flow<String> = dataStore.data.map { preferences ->
-        preferences[DATE_KEY] ?: DEFAULT_DATE_VALUE
-    }
+    val dateFlow: Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[DATE_KEY] ?: DEFAULT_DATE_VALUE
+        }
 
     // Function to save the date
     suspend fun setDate(date: String) {
@@ -49,9 +51,10 @@ class SettingsManager(private val dataStore: DataStore<Preferences>) {
     }
 
     // Flow for the love background image URI
-    val loveBgImageUriFlow: Flow<String?> = dataStore.data.map { preferences ->
-        preferences[LOVE_BG_IMAGE_URI_KEY]
-    }
+    val loveBgImageUriFlow: Flow<String?> =
+        dataStore.data.map { preferences ->
+            preferences[LOVE_BG_IMAGE_URI_KEY]
+        }
 
     // Function to save the love background image URI
     suspend fun setLoveBgImageUri(uri: String?) {
@@ -65,9 +68,10 @@ class SettingsManager(private val dataStore: DataStore<Preferences>) {
     }
 
     // Flow for the love background enabled state
-    val loveBgEnabledFlow: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[LOVE_BG_ENABLED_KEY] ?: false
-    }
+    val loveBgEnabledFlow: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[LOVE_BG_ENABLED_KEY] ?: false
+        }
 
     // Function to save the love background enabled state
     suspend fun setLoveBgEnabled(enabled: Boolean) {

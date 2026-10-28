@@ -5,16 +5,16 @@ import org.junit.Test
 import org.syezw.data.TodoTask
 
 class TodoClipboardTextTest {
-
     @Test
     fun buildTodoClipboardText_includesCoreFields_forIncompleteTask() {
-        val task = TodoTask(
-            id = 1,
-            name = "买牛奶",
-            isCompleted = false,
-            createdAt = 1_700_000_000_000,
-            completedAt = null
-        )
+        val task =
+            TodoTask(
+                id = 1,
+                name = "买牛奶",
+                isCompleted = false,
+                createdAt = 1_700_000_000_000,
+                completedAt = null,
+            )
 
         val text = buildTodoClipboardText(task)
 
@@ -23,13 +23,14 @@ class TodoClipboardTextTest {
 
     @Test
     fun buildTodoClipboardText_marksCompletedStatus_forCompletedTask() {
-        val task = TodoTask(
-            id = 2,
-            name = "写日报",
-            isCompleted = true,
-            createdAt = 1_700_000_000_000,
-            completedAt = 1_700_000_100_000
-        )
+        val task =
+            TodoTask(
+                id = 2,
+                name = "写日报",
+                isCompleted = true,
+                createdAt = 1_700_000_000_000,
+                completedAt = 1_700_000_100_000,
+            )
 
         val text = buildTodoClipboardText(task)
 

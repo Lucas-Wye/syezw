@@ -5,7 +5,7 @@ import com.google.gson.GsonBuilder
 enum class TradeOrderType {
     BUY,
     SELL,
-    OPEN
+    OPEN,
 }
 
 data class TradeRecordItem(
@@ -15,7 +15,7 @@ data class TradeRecordItem(
     val fee: String = "",
     val year: String = "",
     val month: String = "",
-    val day: String = ""
+    val day: String = "",
 )
 
 data class TradeRecordState(
@@ -31,7 +31,7 @@ data class TradeRecordState(
     val buyTimes: String = "",
     val sellTimes: String = "",
     val historyRecords: List<TradeRecordItem> = emptyList(),
-    val dayRecords: List<TradeRecordItem> = emptyList()
+    val dayRecords: List<TradeRecordItem> = emptyList(),
 )
 
 object TradeJson {

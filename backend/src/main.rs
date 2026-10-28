@@ -3,7 +3,8 @@ use actix_web::{middleware::Logger, web, App, HttpServer};
 use dotenvy::dotenv;
 use env_logger::Env;
 use log::info;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+use std::str::FromStr;
 use syezw_sync_backend::db::{build_db_url, EnvConfig};
 use syezw_sync_backend::{
     image_fetch, image_hashes, image_refs, image_refs_upsert, image_upload, sync_download,
@@ -16,11 +17,25 @@ async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(Env::default().default_filter_or("info"));
     let env = EnvConfig::from_env();
     let db_url = build_db_url(&env);
-    let pool = PgPoolOptions::new()
+    let options = SqliteConnectOptions::from_str(&db_url)
+        .expect("valid SQLite DATABASE_URL")
+        .create_if_missing(true)
+        .busy_timeout(std::time::Duration::from_secs(5));
+    let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&db_url)
+        .connect_with(options)
         .await
         .expect("connect database");
+    for statement in include_str!("../sql/schema.sql")
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        sqlx::query(statement)
+            .execute(&pool)
+            .await
+            .expect("initialize database schema");
+    }
     let bind_addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
     info!("Starting server on {}", bind_addr);
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -59,38 +60,46 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TODOScreen(
-    viewModel: TodoViewModel, modifier: Modifier = Modifier
+    viewModel: TodoViewModel,
+    modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddEditDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    val exportTodosLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/json"),
+            onResult = { uri ->
+                uri?.let {
+                    viewModel.exportTodosToJson(context, it)
+                }
+            },
+        )
 
-    val exportTodosLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json"), onResult = { uri ->
-            uri?.let {
-                viewModel.exportTodosToJson(context, it)
-            }
-        })
-
-    val importTodosLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(), onResult = { uri ->
-            uri?.let {
-                viewModel.importTodosFromJson(context, it)
-            }
-        })
+    val importTodosLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument(),
+            onResult = { uri ->
+                uri?.let {
+                    viewModel.importTodosFromJson(context, it)
+                }
+            },
+        )
 
     Scaffold(
-        modifier = modifier, floatingActionButton = {
+        modifier = modifier,
+        floatingActionButton = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 FloatingActionButton(
                     onClick = {
                         viewModel.clearInputFields()
                         showAddEditDialog = true
-                    }) {
+                    },
+                ) {
                     Icon(Icons.Filled.Add, contentDescription = "Add Task")
                 }
                 FloatingActionButton(
@@ -110,84 +119,85 @@ fun TODOScreen(
                     Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Export Tasks")
                 }
             }
-        }) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        },
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier.padding(paddingValues).fillMaxSize().padding(16.dp),
         ) {
-            item {
-                Text(
-                    text = "总共有 ${uiState.allTasks.size} 个任务，记得做啊！",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            // 搜索框
-            item {
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = { viewModel.setSearchQuery(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("搜索任务名称...") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = "搜索")
-                    },
-                    trailingIcon = {
-                        if (uiState.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "清除搜索")
-                            }
+            Text(
+                text = "总共有 ${uiState.allTasks.size} 个任务，记得做啊！",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = { viewModel.setSearchQuery(it) },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                placeholder = { Text("搜索任务名称...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "搜索") },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "清除搜索")
                         }
-                    },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large
-                )
-            }
-
-            if (uiState.tasks.isEmpty()) {
-                item {
-                    Text(
-                        if (uiState.searchQuery.isNotEmpty())
-                            "没有符合搜索条件的任务"
-                        else
-                            "No tasks yet. Tap the '+' button to add one!",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    }
+                },
+                singleLine = true,
+                shape = MaterialTheme.shapes.large,
+            )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (uiState.tasks.isEmpty()) {
+                    item {
+                        Text(
+                            if (uiState.searchQuery.isNotEmpty()) {
+                                "没有符合搜索条件的任务"
+                            } else {
+                                "No tasks yet. Tap the '+' button to add one!"
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
+                }
+                items(uiState.tasks, key = { it.id }) { task ->
+                    TodoTaskItem(
+                        task = task,
+                        onEditClick = {
+                            viewModel.selectTask(task)
+                            showAddEditDialog = true
+                        },
+                        onDeleteClick = { viewModel.deleteTask(task) },
+                        onToggleComplete = { viewModel.toggleCompletion(task) },
                     )
                 }
-            }
-            items(uiState.tasks, key = { it.id }) { task ->
-                TodoTaskItem(
-                    task = task,
-                    onEditClick = {
-                        viewModel.selectTask(task)
-                        showAddEditDialog = true
-                    },
-                    onDeleteClick = { viewModel.deleteTask(task) },
-                    onToggleComplete = { viewModel.toggleCompletion(task) })
             }
         }
 
         if (showAddEditDialog) {
             AddEditTodoDialog(
-                viewModel = viewModel, onDismiss = {
+                viewModel = viewModel,
+                onDismiss = {
                     showAddEditDialog = false
                     // viewModel.clearInputFields() // Clearing when dialog opens is often better
-                })
+                },
+            )
         }
     }
 }
 
 @Composable
 fun TodoTaskItem(
-    task: TodoTask, onEditClick: () -> Unit, onDeleteClick: () -> Unit, onToggleComplete: () -> Unit
+    task: TodoTask,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onToggleComplete: () -> Unit,
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
@@ -195,16 +205,19 @@ fun TodoTaskItem(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(
-                checked = task.isCompleted, onCheckedChange = { onToggleComplete() })
+                checked = task.isCompleted,
+                onCheckedChange = { onToggleComplete() },
+            )
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -212,19 +225,22 @@ fun TodoTaskItem(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
-                        Date(
-                            task.createdAt
-                        )
-                    ), style = MaterialTheme.typography.bodySmall
+                    text =
+                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
+                            Date(
+                                task.createdAt,
+                            ),
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
                 )
                 if (task.isCompleted && task.completedAt != null) {
                     Text(
-                        text = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
-                            Date(task.completedAt)
-                        ),
+                        text =
+                            SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(
+                                Date(task.completedAt),
+                            ),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -253,11 +269,13 @@ fun TodoTaskItem(
                     onClick = {
                         onDeleteClick()
                         showDeleteConfirmDialog = false
-                    }) { Text("Delete") }
+                    },
+                ) { Text("Delete") }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = false }) { Text("Cancel") }
-            })
+            },
+        )
     }
 }
 
@@ -265,7 +283,8 @@ fun TodoTaskItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditTodoDialog( // Updated for new fields
-    viewModel: TodoViewModel, onDismiss: () -> Unit
+    viewModel: TodoViewModel,
+    onDismiss: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current // For Toasts
@@ -279,11 +298,14 @@ fun AddEditTodoDialog( // Updated for new fields
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = uiState.currentName, // Changed to currentName
-                    onValueChange = { viewModel.updateCurrentName(it) }, // Changed to updateCurrentName
+                    value = uiState.currentName,
+                    onValueChange = { viewModel.updateCurrentName(it) },
                     label = { Text("Task Name*") },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 100.dp, max = 250.dp),
                     isError = uiState.currentName.isBlank(),
-                    singleLine = true
                 )
             }
         },
@@ -296,16 +318,17 @@ fun AddEditTodoDialog( // Updated for new fields
                         return@Button
                     }
                     // Use the local variable here
-                    val taskToSave = currentSelectedTask?.copy(
-                        name = uiState.currentName, isCompleted = currentSelectedTask.isCompleted
-                        // If currentSelectedTask is not null, completedAt should already be part of it
-                        // and copy() will preserve it unless explicitly overridden.
-                    ) ?: TodoTask( // If new task
-                        name = uiState.currentName,
-                        createdAt = System.currentTimeMillis(),
-                        isCompleted = false,
-                        completedAt = null // Explicitly set to null for new, incomplete tasks
-                    )
+                    val taskToSave =
+                        currentSelectedTask?.copy(
+                            name = uiState.currentName, isCompleted = currentSelectedTask.isCompleted,
+                            // If currentSelectedTask is not null, completedAt should already be part of it
+                            // and copy() will preserve it unless explicitly overridden.
+                        ) ?: TodoTask( // If new task
+                            name = uiState.currentName,
+                            createdAt = System.currentTimeMillis(),
+                            isCompleted = false,
+                            completedAt = null, // Explicitly set to null for new, incomplete tasks
+                        )
 
                     if (currentSelectedTask == null) {
                         viewModel.addTask(taskToSave.name) // Simplified addTask
@@ -313,11 +336,13 @@ fun AddEditTodoDialog( // Updated for new fields
                         viewModel.updateTask(taskToSave)
                     }
                     onDismiss()
-                }) { Text("Save") }
+                },
+            ) { Text("Save") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
-        })
+        },
+    )
 }
 
 internal fun buildTodoClipboardText(task: TodoTask): String {

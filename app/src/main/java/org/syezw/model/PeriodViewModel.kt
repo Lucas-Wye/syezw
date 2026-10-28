@@ -41,7 +41,7 @@ data class PeriodRecord(
     @PrimaryKey val startDate: LocalDate,
     val endDate: LocalDate,
     val notes: String? = null,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
 ) {
     val realDuration: Long
         get() = ChronoUnit.DAYS.between(startDate, endDate) + 1
@@ -52,42 +52,51 @@ data class PeriodRecord(
 }
 
 data class OvulationPrediction(
-    val startDate: LocalDate, val endDate: LocalDate, val peakDate: LocalDate
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+    val peakDate: LocalDate,
 )
 
 class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
     private val gson =
-        GsonBuilder().registerTypeAdapter(LocalDate::class.java, object : TypeAdapter<LocalDate>() {
-            override fun write(out: JsonWriter, value: LocalDate?) {
-                if (value == null) {
-                    out.nullValue()
+        GsonBuilder().registerTypeAdapter(
+            LocalDate::class.java,
+            object : TypeAdapter<LocalDate>() {
+                override fun write(
+                    out: JsonWriter,
+                    value: LocalDate?,
+                ) {
+                    if (value == null) {
+                        out.nullValue()
+                    } else {
+                        out.value(value.toString()) // 序列化为 "yyyy-MM-dd" 格式
+                    }
+                }
+
+                override fun read(input: JsonReader): LocalDate? {
+                    if (input.peek() == com.google.gson.stream.JsonToken.NULL) {
+                        input.nextNull()
+                        return null
+                    }
+                    return LocalDate.parse(input.nextString()) // 反序列化从 "yyyy-MM-dd" 格式
+                }
+            },
+        ).create()
+
+    val periodRecords: StateFlow<List<PeriodRecord>> =
+        periodDao.getAllRecords().map { records ->
+            // records are ordered by startDate DESC (newest first)
+            records.mapIndexed { index, record ->
+                if (index < records.size - 1) {
+                    val prev = records[index + 1]
+                    record.apply {
+                        daysSinceLast = ChronoUnit.DAYS.between(prev.startDate, startDate)
+                    }
                 } else {
-                    out.value(value.toString()) // 序列化为 "yyyy-MM-dd" 格式
+                    record
                 }
             }
-
-            override fun read(input: JsonReader): LocalDate? {
-                if (input.peek() == com.google.gson.stream.JsonToken.NULL) {
-                    input.nextNull()
-                    return null
-                }
-                return LocalDate.parse(input.nextString()) // 反序列化从 "yyyy-MM-dd" 格式
-            }
-        }).create()
-
-    val periodRecords: StateFlow<List<PeriodRecord>> = periodDao.getAllRecords().map { records ->
-        // records are ordered by startDate DESC (newest first)
-        records.mapIndexed { index, record ->
-            if (index < records.size - 1) {
-                val prev = records[index + 1]
-                record.apply {
-                    daysSinceLast = ChronoUnit.DAYS.between(prev.startDate, startDate)
-                }
-            } else {
-                record
-            }
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _avgCycleLast3 = MutableStateFlow(0)
     val avgCycleLast3: StateFlow<Int> = _avgCycleLast3.asStateFlow()
@@ -123,16 +132,25 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
         }
     }
 
-    fun addPeriodStartDate(date: LocalDate, notes: String? = null) {
+    fun addPeriodStartDate(
+        date: LocalDate,
+        notes: String? = null,
+    ) {
         viewModelScope.launch {
             val defaultEndDate = date.plusDays(defaultDurationDays - 1)
             if (periodRecords.value.any {
-                    (date.isAfter(it.startDate) && date.isBefore(it.endDate)) || (defaultEndDate.isAfter(
-                        it.startDate
-                    ) && defaultEndDate.isBefore(it.endDate)) || (date.isBefore(it.startDate) && defaultEndDate.isAfter(
-                        it.endDate
-                    ))
-                }) {
+                    (date.isAfter(it.startDate) && date.isBefore(it.endDate)) || (
+                        defaultEndDate.isAfter(
+                            it.startDate,
+                        ) && defaultEndDate.isBefore(it.endDate)
+                    ) || (
+                        date.isBefore(it.startDate) &&
+                            defaultEndDate.isAfter(
+                                it.endDate,
+                            )
+                    )
+                }
+            ) {
                 return@launch
             }
             periodDao.upsert(
@@ -140,18 +158,22 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
                     startDate = date,
                     endDate = defaultEndDate,
                     notes = notes,
-                    updatedAt = System.currentTimeMillis()
-                )
+                    updatedAt = System.currentTimeMillis(),
+                ),
             )
         }
     }
 
-    fun updatePeriodEndDate(record: PeriodRecord, newEndDate: LocalDate) {
+    fun updatePeriodEndDate(
+        record: PeriodRecord,
+        newEndDate: LocalDate,
+    ) {
         viewModelScope.launch {
             if (newEndDate.isBefore(record.startDate)) return@launch
 
-            val nextRecord = periodRecords.value.filter { it.startDate.isAfter(record.startDate) }
-                .minByOrNull { it.startDate }
+            val nextRecord =
+                periodRecords.value.filter { it.startDate.isAfter(record.startDate) }
+                    .minByOrNull { it.startDate }
 
             if (nextRecord != null && newEndDate.isAfter(nextRecord.startDate.minusDays(1))) {
                 return@launch
@@ -159,13 +181,16 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
             periodDao.upsert(
                 record.copy(
                     endDate = newEndDate,
-                    updatedAt = System.currentTimeMillis()
-                )
+                    updatedAt = System.currentTimeMillis(),
+                ),
             )
         }
     }
 
-    fun updateRecordNotes(record: PeriodRecord, newNotes: String) {
+    fun updateRecordNotes(
+        record: PeriodRecord,
+        newNotes: String,
+    ) {
         viewModelScope.launch {
             periodDao.upsert(record.copy(notes = newNotes, updatedAt = System.currentTimeMillis()))
         }
@@ -177,7 +202,10 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
         }
     }
 
-    fun exportData(context: Context, uri: Uri) {
+    fun exportData(
+        context: Context,
+        uri: Uri,
+    ) {
         viewModelScope.launch {
             try {
                 val recordsToExport = periodDao.getAllRecords().first()
@@ -209,7 +237,10 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
         }
     }
 
-    fun importData(context: Context, uri: Uri) {
+    fun importData(
+        context: Context,
+        uri: Uri,
+    ) {
         viewModelScope.launch {
             try {
                 val jsonString = StringBuilder()
@@ -248,10 +279,11 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
-                        context, "成功导入 ${importedRecords.size} 条记录!", Toast.LENGTH_SHORT
+                        context,
+                        "成功导入 ${importedRecords.size} 条记录!",
+                        Toast.LENGTH_SHORT,
                     ).show()
                 }
-
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
@@ -293,11 +325,12 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
     }
 
     private fun predictOvulation(lastPeriodDate: LocalDate) {
-        val cycleToUse = when {
-            _avgCycleLast3.value > 0 -> _avgCycleLast3.value
-            _avgCycleLast5.value > 0 -> _avgCycleLast5.value
-            else -> 0
-        }
+        val cycleToUse =
+            when {
+                _avgCycleLast3.value > 0 -> _avgCycleLast3.value
+                _avgCycleLast5.value > 0 -> _avgCycleLast5.value
+                else -> 0
+            }
 
         if (cycleToUse > 0) {
             val nextPeriodDate = lastPeriodDate.plusDays(cycleToUse.toLong())
@@ -311,7 +344,10 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
         }
     }
 
-    private fun calculateAverage(values: List<Long>, count: Int): Int {
+    private fun calculateAverage(
+        values: List<Long>,
+        count: Int,
+    ): Int {
         if (values.isEmpty() || count <= 0) return 0
         val sublist = values.take(count)
         return sublist.average().toInt()
@@ -321,7 +357,8 @@ class PeriodViewModel(private val periodDao: PeriodDao) : ViewModel() {
 class PeriodViewModelFactory(private val periodDao: PeriodDao) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PeriodViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST") return PeriodViewModel(periodDao) as T
+            @Suppress("UNCHECKED_CAST")
+            return PeriodViewModel(periodDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class for Period")
     }

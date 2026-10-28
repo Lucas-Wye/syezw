@@ -1,6 +1,5 @@
 package org.syezw.model
 
-
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -55,11 +54,12 @@ data class DiaryUiState(
     val availableTags: List<String> = emptyList(), // 所有可用的标签
     val availableAuthors: List<String> = emptyList(), // 所有可用的作者
     val availableLocations: List<String> = emptyList(), // 所有可用的地点
-    val searchQuery: String = "" // 搜索查询文本
+    val searchQuery: String = "", // 搜索查询文本
 )
 
 class DiaryViewModel(
-    private val diaryDao: DiaryDao, private val settingsManager: SettingsManager
+    private val diaryDao: DiaryDao,
+    private val settingsManager: SettingsManager,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DiaryUiState())
     val uiState: StateFlow<DiaryUiState> = _uiState.asStateFlow()
@@ -75,7 +75,10 @@ class DiaryViewModel(
         }
     }
 
-    fun exportDiariesToJson(context: Context, uri: Uri) {
+    fun exportDiariesToJson(
+        context: Context,
+        uri: Uri,
+    ) {
         viewModelScope.launch {
             try {
                 val diariesToExport =
@@ -111,7 +114,10 @@ class DiaryViewModel(
         }
     }
 
-    fun importDiariesFromJson(context: Context, uri: Uri) {
+    fun importDiariesFromJson(
+        context: Context,
+        uri: Uri,
+    ) {
         viewModelScope.launch {
             try {
                 val jsonString = StringBuilder()
@@ -140,7 +146,9 @@ class DiaryViewModel(
                 if (importedDiaries.isEmpty()) {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
-                            context, "No diaries found in the import file.", Toast.LENGTH_SHORT
+                            context,
+                            "No diaries found in the import file.",
+                            Toast.LENGTH_SHORT,
                         ).show()
                     }
                     return@launch
@@ -159,9 +167,10 @@ class DiaryViewModel(
                     val diary = importedDiary.toDiary()
 
                     // Check for duplicates by content and timestamp
-                    val isDuplicate = existingDiaries.any { existing ->
-                        existing.content == diary.content && existing.timestamp == diary.timestamp
-                    }
+                    val isDuplicate =
+                        existingDiaries.any { existing ->
+                            existing.content == diary.content && existing.timestamp == diary.timestamp
+                        }
 
                     if (!isDuplicate) {
                         diaryDao.insert(diary)
@@ -182,18 +191,17 @@ class DiaryViewModel(
                         Toast.makeText(
                             context,
                             "$newEntriesCount new diaries imported and merged!",
-                            Toast.LENGTH_LONG
+                            Toast.LENGTH_LONG,
                         ).show()
                     } else {
                         Toast.makeText(
                             context,
                             "No new diaries to import or all entries were duplicates.",
-                            Toast.LENGTH_LONG
+                            Toast.LENGTH_LONG,
                         ).show()
                     }
                     // loadAllEntries() will be called automatically due to the Flow from DAO
                 }
-
             } catch (e: Exception) {
                 e.printStackTrace()
                 withContext(Dispatchers.Main) {
@@ -212,18 +220,19 @@ class DiaryViewModel(
                 val allLocations = entries.mapNotNull { it.location }.distinct().sorted()
 
                 _uiState.update { currentState ->
-                    val filteredEntries = applyFilters(
-                        entries,
-                        currentState.selectedFilterTag,
-                        currentState.selectedFilterAuthor,
-                        currentState.searchQuery
-                    )
+                    val filteredEntries =
+                        applyFilters(
+                            entries,
+                            currentState.selectedFilterTag,
+                            currentState.selectedFilterAuthor,
+                            currentState.searchQuery,
+                        )
                     currentState.copy(
                         entries = filteredEntries,
                         allEntries = entries,
                         availableTags = allTags,
                         availableAuthors = allAuthors,
-                        availableLocations = allLocations
+                        availableLocations = allLocations,
                     )
                 }
             }
@@ -234,7 +243,7 @@ class DiaryViewModel(
         entries: List<Diary>,
         filterTag: String?,
         filterAuthor: String?,
-        searchQuery: String
+        searchQuery: String,
     ): List<Diary> {
         var filtered = entries
 
@@ -251,11 +260,12 @@ class DiaryViewModel(
         // 应用搜索查询（搜索内容、标签或地点）
         if (searchQuery.isNotBlank()) {
             val query = searchQuery.lowercase()
-            filtered = filtered.filter { diary ->
-                diary.content.lowercase().contains(query) ||
+            filtered =
+                filtered.filter { diary ->
+                    diary.content.lowercase().contains(query) ||
                         diary.tags.any { it.lowercase().contains(query) } ||
                         diary.location?.lowercase()?.contains(query) == true
-            }
+                }
         }
 
         return filtered
@@ -263,45 +273,48 @@ class DiaryViewModel(
 
     fun setFilterTag(tag: String?) {
         _uiState.update { currentState ->
-            val filteredEntries = applyFilters(
-                currentState.allEntries,
-                tag,
-                currentState.selectedFilterAuthor,
-                currentState.searchQuery
-            )
+            val filteredEntries =
+                applyFilters(
+                    currentState.allEntries,
+                    tag,
+                    currentState.selectedFilterAuthor,
+                    currentState.searchQuery,
+                )
             currentState.copy(
                 selectedFilterTag = tag,
-                entries = filteredEntries
+                entries = filteredEntries,
             )
         }
     }
 
     fun setFilterAuthor(author: String?) {
         _uiState.update { currentState ->
-            val filteredEntries = applyFilters(
-                currentState.allEntries,
-                currentState.selectedFilterTag,
-                author,
-                currentState.searchQuery
-            )
+            val filteredEntries =
+                applyFilters(
+                    currentState.allEntries,
+                    currentState.selectedFilterTag,
+                    author,
+                    currentState.searchQuery,
+                )
             currentState.copy(
                 selectedFilterAuthor = author,
-                entries = filteredEntries
+                entries = filteredEntries,
             )
         }
     }
 
     fun setSearchQuery(query: String) {
         _uiState.update { currentState ->
-            val filteredEntries = applyFilters(
-                currentState.allEntries,
-                currentState.selectedFilterTag,
-                currentState.selectedFilterAuthor,
-                query
-            )
+            val filteredEntries =
+                applyFilters(
+                    currentState.allEntries,
+                    currentState.selectedFilterTag,
+                    currentState.selectedFilterAuthor,
+                    query,
+                )
             currentState.copy(
                 searchQuery = query,
-                entries = filteredEntries
+                entries = filteredEntries,
             )
         }
     }
@@ -312,7 +325,7 @@ class DiaryViewModel(
                 selectedFilterTag = null,
                 selectedFilterAuthor = null,
                 searchQuery = "",
-                entries = currentState.allEntries
+                entries = currentState.allEntries,
             )
         }
     }
@@ -327,8 +340,9 @@ class DiaryViewModel(
                         currentTags = entry?.tags ?: emptyList(),
                         currentTimestamp = entry?.timestamp ?: System.currentTimeMillis(),
                         currentLocation = entry?.location,
-                        currentImagePaths = entry?.imageUris?.map(::normalizeDiaryImageName)
-                            ?: emptyList()
+                        currentImagePaths =
+                            entry?.imageUris?.map(::normalizeDiaryImageName)
+                                ?: emptyList(),
                     )
                 }
             }
@@ -357,23 +371,27 @@ class DiaryViewModel(
         _uiState.update { it.copy(currentLocation = location) }
     }
 
-    fun addImagesFromUris(context: Context, uris: List<Uri>) {
+    fun addImagesFromUris(
+        context: Context,
+        uris: List<Uri>,
+    ) {
         if (uris.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
             val hashCache = loadImageHashCache(context).toMutableMap()
-            val savedNames = uris.mapNotNull { uri ->
-                val hash = computeHashForUri(context, uri) ?: return@mapNotNull null
-                val cachedPath = hashCache[hash]
-                if (cachedPath != null && File(resolveDiaryImagePath(cachedPath)).exists()) {
-                    normalizeDiaryImageName(cachedPath)
-                } else {
-                    val newName = saveImageToDownloads(context, uri)
-                    if (newName != null) {
-                        hashCache[hash] = newName
+            val savedNames =
+                uris.mapNotNull { uri ->
+                    val hash = computeHashForUri(context, uri) ?: return@mapNotNull null
+                    val cachedPath = hashCache[hash]
+                    if (cachedPath != null && File(resolveDiaryImagePath(cachedPath)).exists()) {
+                        normalizeDiaryImageName(cachedPath)
+                    } else {
+                        val newName = saveImageToDownloads(context, uri)
+                        if (newName != null) {
+                            hashCache[hash] = newName
+                        }
+                        newName
                     }
-                    newName
                 }
-            }
             saveImageHashCache(context, hashCache)
             if (savedNames.isNotEmpty()) {
                 _uiState.update { it.copy(currentImagePaths = it.currentImagePaths + savedNames) }
@@ -393,29 +411,31 @@ class DiaryViewModel(
                 return@launch
             }
 
-            val authorToUse = if (currentState.selectedEntry == null) {
-                settingsManager.defaultAuthorFlow.first() // Get latest author for new entries
-            } else {
-                currentState.selectedEntry.author // Keep existing author for edited entries (or make this configurable too)
-            }
+            val authorToUse =
+                if (currentState.selectedEntry == null) {
+                    settingsManager.defaultAuthorFlow.first() // Get latest author for new entries
+                } else {
+                    currentState.selectedEntry.author // Keep existing author for edited entries (or make this configurable too)
+                }
 
-            val entryToSave = currentState.selectedEntry?.copy(
-                content = currentState.currentContent,
-                author = authorToUse,
-                tags = currentState.currentTags,
-                timestamp = currentState.currentTimestamp,
-                location = currentState.currentLocation,
-                imageUris = currentState.currentImagePaths.map(::normalizeDiaryImageName),
-                updatedAt = System.currentTimeMillis()
-            ) ?: Diary(
-                content = currentState.currentContent,
-                author = authorToUse,
-                tags = currentState.currentTags,
-                timestamp = currentState.currentTimestamp,
-                location = currentState.currentLocation,
-                imageUris = currentState.currentImagePaths.map(::normalizeDiaryImageName),
-                updatedAt = System.currentTimeMillis()
-            )
+            val entryToSave =
+                currentState.selectedEntry?.copy(
+                    content = currentState.currentContent,
+                    author = authorToUse,
+                    tags = currentState.currentTags,
+                    timestamp = currentState.currentTimestamp,
+                    location = currentState.currentLocation,
+                    imageUris = currentState.currentImagePaths.map(::normalizeDiaryImageName),
+                    updatedAt = System.currentTimeMillis(),
+                ) ?: Diary(
+                    content = currentState.currentContent,
+                    author = authorToUse,
+                    tags = currentState.currentTags,
+                    timestamp = currentState.currentTimestamp,
+                    location = currentState.currentLocation,
+                    imageUris = currentState.currentImagePaths.map(::normalizeDiaryImageName),
+                    updatedAt = System.currentTimeMillis(),
+                )
 
             if (entryToSave.id == 0) { // New entry
                 diaryDao.insert(entryToSave)
@@ -445,13 +465,16 @@ class DiaryViewModel(
                     currentTags = emptyList(),
                     currentTimestamp = System.currentTimeMillis(),
                     currentLocation = null,
-                    currentImagePaths = emptyList()
+                    currentImagePaths = emptyList(),
                 )
             }
         }
     }
 
-    private fun saveImageToDownloads(context: Context, sourceUri: Uri): String? {
+    private fun saveImageToDownloads(
+        context: Context,
+        sourceUri: Uri,
+    ): String? {
         return try {
             val resolver = context.contentResolver
             val mimeType = resolver.getType(sourceUri) ?: "image/jpeg"
@@ -459,14 +482,15 @@ class DiaryViewModel(
                 MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType) ?: "jpg"
             val fileName = "diary_${System.currentTimeMillis()}_${UUID.randomUUID()}.$extension"
 
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(MediaStore.Downloads.MIME_TYPE, mimeType)
-                put(
-                    MediaStore.Downloads.RELATIVE_PATH,
-                    "${Environment.DIRECTORY_DOWNLOADS}/$DIARY_IMAGES_FOLDER"
-                )
-            }
+            val values =
+                ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                    put(
+                        MediaStore.Downloads.RELATIVE_PATH,
+                        "${Environment.DIRECTORY_DOWNLOADS}/$DIARY_IMAGES_FOLDER",
+                    )
+                }
 
             val targetUri =
                 resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return null
@@ -484,7 +508,10 @@ class DiaryViewModel(
         }
     }
 
-    private fun computeHashForUri(context: Context, uri: Uri): String? {
+    private fun computeHashForUri(
+        context: Context,
+        uri: Uri,
+    ): String? {
         return try {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 computeSha256(input)
@@ -552,7 +579,10 @@ class DiaryViewModel(
         }
     }
 
-    private fun saveImageHashCache(context: Context, cache: Map<String, String>) {
+    private fun saveImageHashCache(
+        context: Context,
+        cache: Map<String, String>,
+    ) {
         try {
             val file = File(context.filesDir, imageHashCacheFileName)
             file.writeText(gson.toJson(cache))
@@ -563,13 +593,15 @@ class DiaryViewModel(
 }
 
 class DiaryViewModelFactory(
-    private val diaryDao: DiaryDao, private val settingsManager: SettingsManager
+    private val diaryDao: DiaryDao,
+    private val settingsManager: SettingsManager,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(DiaryViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST") return DiaryViewModel(
+            @Suppress("UNCHECKED_CAST")
+            return DiaryViewModel(
                 diaryDao,
-                settingsManager
+                settingsManager,
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

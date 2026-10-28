@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GpsModeTest {
-
     @Test
     fun gpsPrefKeys_haveCorrectDefaults() {
         assertEquals("gps_enabled", GpsPrefKeys.GPS_ENABLED.name)
@@ -20,12 +19,13 @@ class GpsModeTest {
     fun gpsPriority_differentValuesMapCorrectly() {
         data class PriorityMapping(val setting: String, val expectedLabel: String)
 
-        val mappings = listOf(
-            PriorityMapping("high_accuracy", "High Accuracy"),
-            PriorityMapping("balanced", "Balanced Power"),
-            PriorityMapping("low_power", "Low Power"),
-            PriorityMapping("no_power", "No Power (Passive)")
-        )
+        val mappings =
+            listOf(
+                PriorityMapping("high_accuracy", "High Accuracy"),
+                PriorityMapping("balanced", "Balanced Power"),
+                PriorityMapping("low_power", "Low Power"),
+                PriorityMapping("no_power", "No Power (Passive)"),
+            )
 
         assertEquals(4, mappings.size)
         assertTrue(mappings.all { it.setting.isNotBlank() })
@@ -36,13 +36,14 @@ class GpsModeTest {
     fun gpsIntervalOptions_areValid() {
         data class IntervalOption(val ms: Long, val label: String)
 
-        val options = listOf(
-            IntervalOption(5_000L, "5 seconds"),
-            IntervalOption(10_000L, "10 seconds"),
-            IntervalOption(30_000L, "30 seconds"),
-            IntervalOption(60_000L, "1 minute"),
-            IntervalOption(300_000L, "5 minutes")
-        )
+        val options =
+            listOf(
+                IntervalOption(5_000L, "5 seconds"),
+                IntervalOption(10_000L, "10 seconds"),
+                IntervalOption(30_000L, "30 seconds"),
+                IntervalOption(60_000L, "1 minute"),
+                IntervalOption(300_000L, "5 minutes"),
+            )
 
         assertEquals(5, options.size)
         // Verify all intervals are positive
@@ -63,13 +64,14 @@ class GpsModeTest {
     fun gpsFasterInterval_isAlwaysHalfOfMainInterval() {
         data class IntervalPair(val main: Long, val fastest: Long)
 
-        val pairs = listOf(
-            IntervalPair(5_000L, 5_000L / 2),
-            IntervalPair(10_000L, 10_000L / 2),
-            IntervalPair(30_000L, 30_000L / 2),
-            IntervalPair(60_000L, 60_000L / 2),
-            IntervalPair(300_000L, 300_000L / 2)
-        )
+        val pairs =
+            listOf(
+                IntervalPair(5_000L, 5_000L / 2),
+                IntervalPair(10_000L, 10_000L / 2),
+                IntervalPair(30_000L, 30_000L / 2),
+                IntervalPair(60_000L, 60_000L / 2),
+                IntervalPair(300_000L, 300_000L / 2),
+            )
 
         pairs.forEach { (main, fastest) ->
             assertEquals(main / 2, fastest)
@@ -80,12 +82,13 @@ class GpsModeTest {
 
     @Test
     fun priorityLabelMapping_isComplete() {
-        val priorityLabels = mapOf(
-            "high_accuracy" to "High Accuracy",
-            "balanced" to "Balanced Power",
-            "low_power" to "Low Power",
-            "no_power" to "No Power (Passive)"
-        )
+        val priorityLabels =
+            mapOf(
+                "high_accuracy" to "High Accuracy",
+                "balanced" to "Balanced Power",
+                "low_power" to "Low Power",
+                "no_power" to "No Power (Passive)",
+            )
 
         // Every mode should have a label
         assertTrue(priorityLabels.containsKey("high_accuracy"))

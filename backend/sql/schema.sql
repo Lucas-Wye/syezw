@@ -26,6 +26,17 @@ CREATE TABLE IF NOT EXISTS period_sync (
     payload_data TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS product_sync (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    timestamp BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    discount REAL NOT NULL DEFAULT 1.0,
+    notes TEXT NOT NULL DEFAULT '',
+    payload_iv TEXT NOT NULL,
+    payload_data TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS diary_images (
     hash TEXT PRIMARY KEY,
     blob_iv TEXT NOT NULL,
